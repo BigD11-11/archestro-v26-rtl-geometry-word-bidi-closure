@@ -1,0 +1,14 @@
+{
+  "package": "ARCHESTRO_V27_OWNER_VISUAL_RTL_WORD_RTL_CLOSURE_ONE_GO_2026-10-05.zip",
+  "version": "V27 OWNER VISUAL RTL + WORD RTL CLOSURE",
+  "installed_authority_before_run": "V26 Root RTL Geometry + Word BiDi TARGET TECHNICAL PASS",
+  "product_patch_file_count": 5,
+  "product_patch_changed_files": 4,
+  "product_patch_noop_files": [
+    "src/Archestro.MeetingVault/App.xaml.cs"
+  ],
+  "scope": "bounded owner-visual RTL geometry + Word RTL correction only",
+  "runtime_strategy": "bundled official CPython 3.13.15 embeddable x64",
+  "aims": "NO_TOUCH",
+  "taste_pass": "HOLD"
+}

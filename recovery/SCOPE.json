@@ -1,0 +1,24 @@
+{
+  "version": "V27 OWNER VISUAL RTL + WORD RTL CLOSURE",
+  "baseline": "V26 installed technical authority",
+  "allowed_files": [
+    "src/Archestro.MeetingVault/App.xaml.cs",
+    "src/Archestro.MeetingVault/Dialogs/IntelligenceWindow.xaml",
+    "src/Archestro.MeetingVault/Dialogs/IntelligenceWindow.xaml.cs",
+    "src/Archestro.MeetingVault/Services/MeetingReportWordExporter.cs",
+    "src/Archestro.MeetingVault/Services/SelfTestService.cs"
+  ],
+  "functional_changes": [
+    "physical LTR report layout shells with explicit Arabic right anchoring",
+    "Arabic RTL content direction inside physical shells",
+    "Word settings.xml with bidi language and compatibility mode",
+    "logical start alignment for Arabic paragraphs",
+    "QA assertions for shell/content separation and serialized Word settings"
+  ],
+  "forbidden": [
+    "Aims",
+    "Taste Pass",
+    "unrelated product redesign",
+    "feature removal"
+  ]
+}

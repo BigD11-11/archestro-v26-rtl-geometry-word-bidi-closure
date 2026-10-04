@@ -1,0 +1,11 @@
+{
+  "runtime": "CPython embeddable",
+  "version": "3.13.15",
+  "platform": "windows-x64",
+  "source_url": "https://www.python.org/ftp/python/3.13.15/python-3.13.15-embed-amd64.zip",
+  "archive_file": "python-3.13.15-embed-amd64.zip",
+  "archive_bytes": 11009825,
+  "archive_sha256": "D1F04D990AEE1253D8569E8E5104E30FA9F5FA830899F14843448872D936A2CF",
+  "package_path": ".runtime/python/python.exe",
+  "external_python_required": false
+}
