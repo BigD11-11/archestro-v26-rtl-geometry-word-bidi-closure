@@ -73,7 +73,7 @@ foreach ($srcRel in $patchMap.Keys) {
 }
 $patchHashes = Get-Content -LiteralPath (Join-Path $PackageRoot 'PATCH_HASHES.json') -Raw | ConvertFrom-Json
 foreach ($prop in $patchHashes.PSObject.Properties) {
-    Assert-Sha256 (Join-Path $PackageRoot $prop.Name) $prop.Value | Out-Null
+    Assert-Sha256 (Join-Path (Join-Path $PackageRoot 'PATCH') $prop.Name) $prop.Value | Out-Null
 }
 
 Step 'Copy V26 proof/evidence'
