@@ -191,7 +191,7 @@ Step 'Extract/readback exact final ZIP'
 $Readback = Join-Path $Work 'readback'
 Expand-Archive -LiteralPath $FinalZip -DestinationPath $Readback -Force
 foreach ($prop in $patchHashes.PSObject.Properties) {
-    Assert-Sha256 (Join-Path $Readback $prop.Name) $prop.Value | Out-Null
+    Assert-Sha256 (Join-Path (Join-Path $Readback 'PATCH') $prop.Name) $prop.Value | Out-Null
 }
 $rbLauncher = Get-Content -LiteralPath (Join-Path $Readback 'START_HERE.cmd') -Raw
 if ($rbLauncher -match 'V15 FINAL RESIDUAL CLOSEOUT') { throw 'Readback launcher stale V15 identity.' }
