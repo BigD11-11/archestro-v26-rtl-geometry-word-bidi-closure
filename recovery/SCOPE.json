@@ -1,23 +1,24 @@
 {
-  "version": "V26 RUNTIME RECOVERY — ROOT RTL GEOMETRY + WORD BIDI",
-  "date": "2026-10-04",
-  "installed_authority_before_run": "V25 RTL Functional Closure PASS",
-  "aims": "NO_TOUCH",
-  "patch_file_count": 5,
-  "functional_scope": [
-    "Replace visible WPF TabControl headers with explicit language-mapped navigation controls.",
-    "Stretch selected report content and physically map Arabic first logical card to right column.",
-    "Add target-runtime --rtl-layout-qa measuring actual WPF geometry in Arabic and English.",
-    "Add section/paragraph/run/table WordprocessingML BiDi semantics and serialized OpenXML validation.",
-    "Extend self-test for coordinate and DOCX semantic invariants."
+  "version": "V27 OWNER VISUAL RTL + WORD RTL CLOSURE",
+  "baseline": "V26 installed technical authority",
+  "allowed_files": [
+    "src/Archestro.MeetingVault/App.xaml.cs",
+    "src/Archestro.MeetingVault/Dialogs/IntelligenceWindow.xaml",
+    "src/Archestro.MeetingVault/Dialogs/IntelligenceWindow.xaml.cs",
+    "src/Archestro.MeetingVault/Services/MeetingReportWordExporter.cs",
+    "src/Archestro.MeetingVault/Services/SelfTestService.cs"
   ],
-  "preserved": [
-    "Home Recent V25 fix",
-    "report generation and language validation",
-    "Ask this meeting / Ask my vault state and content",
-    "Qwen/llama, transcription, speaker, storage and data contracts",
-    "Aims NO TOUCH"
+  "functional_changes": [
+    "physical LTR report layout shells with explicit Arabic right anchoring",
+    "Arabic RTL content direction inside physical shells",
+    "Word settings.xml with bidi language and compatibility mode",
+    "logical start alignment for Arabic paragraphs",
+    "QA assertions for shell/content separation and serialized Word settings"
   ],
-  "codex_source_zip_sha256": "CE2B9BF8033258419632829AA3EB88A6BD430DC823FA177A455EF34B68B451BB",
-  "functional_scope_changed_from_codex_v26": false
+  "forbidden": [
+    "Aims",
+    "Taste Pass",
+    "unrelated product redesign",
+    "feature removal"
+  ]
 }
