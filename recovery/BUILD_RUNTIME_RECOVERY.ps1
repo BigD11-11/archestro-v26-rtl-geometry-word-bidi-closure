@@ -12,7 +12,7 @@ Set-StrictMode -Version Latest
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $RecoveryRoot = $PSScriptRoot
-$Work = Join-Path $RepoRoot '_ci_v26_runtime_recovery'
+$Work = Join-Path $RepoRoot '_ci_v27_owner_visual_rtl_word_rtl'
 $PackageRoot = Join-Path $Work 'package'
 $SourceProof = Join-Path $RepoRoot 'V26_ROOT_RTL_GEOMETRY_WORD_BIDI_CLOSURE_SOURCE_AND_PROOF.zip'
 $SourceExpanded = Join-Path $Work 'source_proof'
@@ -20,7 +20,7 @@ $PythonArchive = Join-Path $Work 'python-3.13.15-embed-amd64.zip'
 $PythonUrl = 'https://www.python.org/ftp/python/3.13.15/python-3.13.15-embed-amd64.zip'
 $PythonExpectedSha = 'D1F04D990AEE1253D8569E8E5104E30FA9F5FA830899F14843448872D936A2CF'
 $PythonExpectedBytes = 11009825
-$FinalName = 'ARCHESTRO_V26_RUNTIME_RECOVERY_OWNER_RUN_ONE_GO_2026-10-04.zip'
+$FinalName = 'ARCHESTRO_V27_OWNER_VISUAL_RTL_WORD_RTL_CLOSURE_ONE_GO_2026-10-05.zip'
 $FinalZip = Join-Path $Work $FinalName
 $Start = Get-Date
 
@@ -57,7 +57,7 @@ Assert-Sha256 $SourceProof 'CE2B9BF8033258419632829AA3EB88A6BD430DC823FA177A455E
 if ((Get-Item -LiteralPath $SourceProof).Length -ne 39237) { throw 'Unexpected V26 source/proof ZIP size.' }
 Expand-Archive -LiteralPath $SourceProof -DestinationPath $SourceExpanded -Force
 
-Step 'Materialize exact five V26 patch files'
+Step 'Materialize V26 baseline source for bounded V27 transform'
 $patchMap = @{
     'source/App.xaml.cs' = 'PATCH/src/Archestro.MeetingVault/App.xaml.cs'
     'source/Dialogs/IntelligenceWindow.xaml' = 'PATCH/src/Archestro.MeetingVault/Dialogs/IntelligenceWindow.xaml'
@@ -71,12 +71,9 @@ foreach ($srcRel in $patchMap.Keys) {
     New-Item -ItemType Directory -Path (Split-Path -Parent $dst) -Force | Out-Null
     Copy-Item -LiteralPath $src -Destination $dst -Force
 }
-$patchHashes = Get-Content -LiteralPath (Join-Path $PackageRoot 'PATCH_HASHES.json') -Raw | ConvertFrom-Json
-foreach ($prop in $patchHashes.PSObject.Properties) {
-    Assert-Sha256 (Join-Path (Join-Path $PackageRoot 'PATCH') $prop.Name) $prop.Value | Out-Null
-}
+# V27 hashes are verified after the deterministic bounded transform runs under the packaged interpreter.
 
-Step 'Copy V26 proof/evidence'
+Step 'Copy V26 baseline proof/evidence'
 $evidenceRoot = Join-Path $PackageRoot 'CODEX_V26_EVIDENCE'
 New-Item -ItemType Directory -Path $evidenceRoot -Force | Out-Null
 Copy-Item -LiteralPath $SourceProof -Destination (Join-Path $evidenceRoot (Split-Path -Leaf $SourceProof)) -Force
@@ -93,6 +90,14 @@ New-Item -ItemType Directory -Path $PythonRoot -Force | Out-Null
 Expand-Archive -LiteralPath $PythonArchive -DestinationPath $PythonRoot -Force
 $PythonExe = Join-Path $PythonRoot 'python.exe'
 if (-not (Test-Path -LiteralPath $PythonExe)) { throw 'Packaged python.exe missing after extraction.' }
+
+Step 'Apply deterministic bounded V27 source transform'
+& $PythonExe (Join-Path $RecoveryRoot 'V27_TRANSFORM.py') $PackageRoot
+if ($LASTEXITCODE -ne 0) { throw "V27 source transform failed: $LASTEXITCODE" }
+$patchHashes = Get-Content -LiteralPath (Join-Path $PackageRoot 'PATCH_HASHES.json') -Raw | ConvertFrom-Json
+foreach ($prop in $patchHashes.PSObject.Properties) {
+    Assert-Sha256 (Join-Path (Join-Path $PackageRoot 'PATCH') $prop.Name) $prop.Value | Out-Null
+}
 
 Step 'Freeze extracted runtime manifest'
 $runtimeRows = @()
@@ -114,11 +119,11 @@ if ($LASTEXITCODE -ne 0) { throw "RUNNER.py --self-test failed: $LASTEXITCODE" }
 
 Step 'Exact launcher stale-version and dependency-path scan'
 $launcher = Get-Content -LiteralPath (Join-Path $PackageRoot 'START_HERE.cmd') -Raw
-if ($launcher -match 'V15 FINAL RESIDUAL CLOSEOUT') { throw 'Stale V15 active launcher identity remains.' }
+if ($launcher -match 'V15 FINAL RESIDUAL CLOSEOUT|V26 RUNTIME RECOVERY') { throw 'Stale owner-visible launcher identity remains.' }
 if ($launcher -match '(?im)^\s*where\s+(py|python)\b') { throw 'External PATH Python discovery remains in launcher.' }
 if ($launcher -notmatch '\.runtime\\python\\python\.exe') { throw 'Launcher does not bind packaged Python runtime.' }
 $runnerText = Get-Content -LiteralPath (Join-Path $PackageRoot 'RUNNER.py') -Raw
-if ($runnerText -match '# Archestro V25 — Owner Result') { throw 'Stale V25 human result heading remains in runner.' }
+if ($runnerText -match '# Archestro V25 — Owner Result|# Archestro V26 Runtime Recovery — Owner Result') { throw 'Stale human result heading remains in runner.' }
 
 Step 'Target-like Windows launcher smoke with global Python removed from PATH'
 $oldPath = $env:PATH
