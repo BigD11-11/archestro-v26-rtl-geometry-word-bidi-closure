@@ -1,0 +1,7 @@
+Final published executable
+Path (temporary, not included in source/proof package): C:\Users\arefa\AppData\Local\Temp\Archestro_V27_BUILD_20261005\PUBLISH\Archestro.MeetingVault.exe
+Size: 211876471 bytes
+SHA-256: 27487224BAC3F7BC38479D61664790D34CB42BA99CEDA619BC5FAC442223DE3F
+Build: dotnet build -c Release -r win-x64 --no-restore /nr:false; exit 0; 0 errors; 8 existing warnings in MainWindow.xaml.cs (CS8602, CS0649).
+Publish: dotnet publish -c Release -r win-x64 --no-restore -o <temporary PUBLISH> /nr:false; exit 0.
+Installed authority: V26 remains installed; this build was not installed.

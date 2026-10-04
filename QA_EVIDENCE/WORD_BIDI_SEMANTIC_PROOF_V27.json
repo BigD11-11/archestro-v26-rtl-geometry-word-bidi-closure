@@ -1,0 +1,48 @@
+{
+  "status": "PASS",
+  "source": "serialized .docx ZIP part bytes",
+  "documents": [
+    {
+      "language": "Arabic",
+      "sectionBidi": true,
+      "arabicParagraphCount": 36,
+      "arabicParagraphBidiCount": 36,
+      "arabicParagraphStartCount": 32,
+      "arabicBodyStartCount": 2,
+      "arabicRunCount": 40,
+      "arabicRtlRunCount": 40,
+      "arabicTableCount": 3,
+      "bidiVisualTableCount": 3,
+      "wordSettingsExists": true,
+      "modernCompatibilityMode": "15",
+      "themeFontLangBidi": "ar-SA",
+      "openXmlValidatorErrorCount": 0,
+      "bodyStyleBidi": true,
+      "bodyStyleStart": true,
+      "logicalApiTermPreserved": true,
+      "fixtureFileName": "arabic-report.docx",
+      "fixtureSha256": "D9FAF5744322FCFE5FC9B9EBFD6F041DBB26149B29A92F23E5EBF0122869E878"
+    },
+    {
+      "language": "English",
+      "sectionBidi": false,
+      "arabicParagraphCount": 0,
+      "arabicParagraphBidiCount": 0,
+      "arabicParagraphStartCount": 0,
+      "arabicBodyStartCount": 0,
+      "arabicRunCount": 0,
+      "arabicRtlRunCount": 0,
+      "arabicTableCount": 2,
+      "bidiVisualTableCount": 0,
+      "wordSettingsExists": true,
+      "modernCompatibilityMode": "15",
+      "themeFontLangBidi": "en-US",
+      "openXmlValidatorErrorCount": 0,
+      "bodyStyleBidi": false,
+      "bodyStyleStart": false,
+      "logicalApiTermPreserved": true,
+      "fixtureFileName": "english-report.docx",
+      "fixtureSha256": "E323A0D6045707A79BBC3725042CF73102966AFB3C3DB714979BE290ADAAF3CF"
+    }
+  ]
+}
