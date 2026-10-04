@@ -500,10 +500,10 @@ def self_test():
   assert 'V15 FINAL RESIDUAL CLOSEOUT' not in launcher
   assert 'where py' not in launcher.lower() and 'where python' not in launcher.lower()
   assert r'.runtime\python\python.exe' in launcher.lower()
-  assert 'Archestro V26 Runtime Recovery' in launcher
+  assert 'Archestro V27 Owner Visual RTL + Word RTL Closure' in launcher
   stale_heading='# Archestro ' + 'V25' + ' — Owner Result'
   assert stale_heading not in raw
-  assert RUNNER_VERSION.startswith('V26 ')
+  assert RUNNER_VERSION.startswith('V27 ')
   graph={sid:set(deps) for sid,_,deps in STAGE_DEFS}; seen=set(); active=set()
   def visit(n):
    if n in active: raise AssertionError('cycle')
@@ -512,7 +512,7 @@ def self_test():
    for d in graph[n]: visit(d)
    active.remove(n); seen.add(n)
   for n in graph: visit(n)
-  print('[SELF-TEST PASS] V26 runtime recovery contract, embedded-runtime launcher, hashes, geometry QA route, DOCX BiDi guards, continuation fixture, ZIP, stage graph')
+  print('[SELF-TEST PASS] V27 owner visual RTL + Word RTL closure contract, embedded-runtime launcher, frozen hashes, physical-shell QA, Word settings/start guards, continuation fixture, ZIP, stage graph')
   return 0
  finally: shutil.rmtree(test_root,ignore_errors=True)
 
