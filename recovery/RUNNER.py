@@ -494,7 +494,8 @@ def self_test():
   assert 'where py' not in launcher.lower() and 'where python' not in launcher.lower()
   assert r'.runtime\python\python.exe' in launcher.lower()
   assert 'Archestro V26 Runtime Recovery' in launcher
-  assert '# Archestro V25 — Owner Result' not in raw
+  stale_heading='# Archestro ' + 'V25' + ' — Owner Result'
+  assert stale_heading not in raw
   assert RUNNER_VERSION.startswith('V26 ')
   graph={sid:set(deps) for sid,_,deps in STAGE_DEFS}; seen=set(); active=set()
   def visit(n):
@@ -510,7 +511,7 @@ def self_test():
 
 def main():
  global CANONICAL_MUTATED,INSTALL_MUTATED
- print('='*110); print(' ARCHESTRO MEETING VAULT — V26 ROOT RTL GEOMETRY + WORD BIDI — OWNER-RUN INTEGRATION'); print(' staged-source first • continue-safe diagnostics • heartbeat • one RESULT_TO_UPLOAD.zip • Aims NO TOUCH'); print('='*110)
+ print('='*110); print(' ARCHESTRO MEETING VAULT — V26 RUNTIME RECOVERY — ROOT RTL GEOMETRY + WORD BIDI'); print(' staged-source first • continue-safe diagnostics • heartbeat • one RESULT_TO_UPLOAD.zip • Aims NO TOUCH'); print('='*110)
  s1,_=execute_stage('S01',preflight)
  if not s1:
   for sid in ['S02','S03','S04','S05','S06','S07','S08','S09','S10','S11','S12']: execute_stage(sid,lambda:None,blocked_if=['S01'])
