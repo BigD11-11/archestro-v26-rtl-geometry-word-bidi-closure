@@ -13,7 +13,7 @@ import os, sys, json, time, hashlib, shutil, subprocess, zipfile, re, threading,
 from pathlib import Path
 from datetime import datetime, timezone
 
-RUNNER_VERSION='V26 RUNTIME RECOVERY — ROOT RTL GEOMETRY + WORD BIDI'
+RUNNER_VERSION='V27 OWNER VISUAL RTL + WORD RTL CLOSURE'
 EXPECTED_EMBEDDED_PYTHON='3.13.15'
 ROOT=Path(__file__).resolve().parent
 PATCH=ROOT/'PATCH'; RESULT_ROOT=ROOT/'Result'; WORK_ROOT=ROOT/'_WORK'
@@ -23,7 +23,7 @@ SOURCE_ROOT=Path(r'V:\خاص بي\ARCHESTRO_MEETING_VAULT_BUILD4_R4_3_STARTUP_LI
 INSTALL_ROOT=Path(os.environ.get('LOCALAPPDATA',''))/'Programs'/'Archestro'/'Meeting Vault'
 DOTNET=Path(r'C:\Program Files\dotnet\dotnet.exe')
 DATA_ROOT=Path.home()/'Documents'/'Archestro Meeting Vault'
-STAGE_DEFS=[('S01','Preflight / package / environment',[]),('S02','Current installed baseline diagnostics',['S01']),('S03','User-data safepoint + fingerprint',['S01']),('S04','Isolated source staging + 5-file V26 candidate delta',['S01']),('S05','Staged structural checks',['S04']),('S06','Build + publish staged source',['S04']),('S07','Staged runtime QA',['S06']),('S08','Canonical source backup + frozen delta apply',['S07']),('S09','Installed tree backup + frozen publish apply',['S08']),('S10','Installed runtime QA',['S09']),('S11','Normal startup probe',['S09']),('S12','User-data integrity after',['S09']),('S13','Finalize / rollback / result',['S01'])]
+STAGE_DEFS=[('S01','Preflight / package / environment',[]),('S02','Current installed baseline diagnostics',['S01']),('S03','User-data safepoint + fingerprint',['S01']),('S04','Isolated source staging + 5-file V27 bounded visual RTL delta',['S01']),('S05','Staged structural checks',['S04']),('S06','Build + publish staged source',['S04']),('S07','Staged runtime QA',['S06']),('S08','Canonical source backup + frozen delta apply',['S07']),('S09','Installed tree backup + frozen publish apply',['S08']),('S10','Installed runtime QA',['S09']),('S11','Normal startup probe',['S09']),('S12','User-data integrity after',['S09']),('S13','Finalize / rollback / result',['S01'])]
 STAMP=datetime.now().strftime('%Y%m%d_%H%M%S'); RUN_DIR=RESULT_ROOT/f'RUN_{STAMP}'; LOG_DIR=RUN_DIR/'LOGS'; EVIDENCE_DIR=RUN_DIR/'EVIDENCE'; REPAIR_DIR=RUN_DIR/'REPAIR_CARDS'; RECEIPT_DIR=RUN_DIR/'BACKUP_RECEIPTS'; WORK=WORK_ROOT/f'RUN_{STAMP}'; STAGED_ROOT=WORK/'STAGED_SOURCE'; PUBLISH=WORK/'publish'; BACKUP=WORK/'BACKUP'; DATA_BACKUP=WORK/'DATA_BACKUP'; EVENTS=RUN_DIR/'EVENTS.jsonl'; START=time.monotonic()
 STAGES={sid:{'id':sid,'title':title,'dependencies':deps,'status':'PENDING','started_at':None,'finished_at':None,'seconds':None,'detail':None,'error':None,'repair_card':None} for sid,title,deps in STAGE_DEFS}
 DATA_BEFORE=None; CANONICAL_MUTATED=False; INSTALL_MUTATED=False
@@ -159,31 +159,39 @@ def structural_checks():
    'x:Name="ReportContentArea"',
    'x:Name="ExecutiveSummaryCard"',
    'x:Name="TopicsCard"',
-   'x:Name="KeyPointsCard"'
+   'x:Name="KeyPointsCard"',
+   'FlowDirection="LeftToRight"'
   ],
   'src/Archestro.MeetingVault/Dialogs/IntelligenceWindow.xaml.cs':[
    'ReportNavReportButton',
    'ReportNavMeetingAskButton',
    'ReportNavVaultAskButton',
-   'AppearanceService.IsArabic'
+   'AppearanceService.IsArabic',
+   'ReportSectionGrid.FlowDirection = FlowDirection.LeftToRight',
+   'ReportNavHost.HorizontalAlignment = rtl ? HorizontalAlignment.Right : HorizontalAlignment.Left'
   ],
   'src/Archestro.MeetingVault/Services/MeetingReportWordExporter.cs':[
    'new W.BiDi()',
    'new W.RightToLeftText()',
    'new W.BiDiVisual()',
-   'SectionProperties'
+   'SectionProperties',
+   'AddDocumentSettings(main, arabic)',
+   'W.ThemeFontLanguages',
+   'W.JustificationValues.Start'
   ],
   'src/Archestro.MeetingVault/Services/SelfTestService.cs':[
    'RunRtlLayoutQa',
    'ReportNavHost',
    'OpenXmlValidator',
-   'VerifyWordRtlFixture'
+   'VerifyWordRtlFixture',
+   'themeFontLang bidi=ar-SA',
+   'nav physical shell must remain LTR'
   ]
  }
  for rel,patterns in guards.items():
   text=(STAGED_ROOT/rel).read_text(encoding='utf-8-sig')
   absent=[p for p in patterns if p not in text]
-  if absent: raise RuntimeError(f'V26 semantic guard failed {rel}: {absent}')
+  if absent: raise RuntimeError(f'V27 semantic guard failed {rel}: {absent}')
 
  for rel in PATCH_HASHES:
   if rel.endswith('.xaml'): ET.parse(STAGED_ROOT/rel); parsed.append(rel)
@@ -398,7 +406,7 @@ def rollback_data_if_needed():
 def finalize_summary(final_status,notes=None):
  matrix=list(STAGES.values()); (RUN_DIR/'STAGE_MATRIX.json').write_text(json.dumps(matrix,indent=2),encoding='utf-8'); receipt={'SCRIPTING_RUNTIME_CONTRACT':'PASS','KNOWN_FAILURE_REUSE':'PASS','PARSER_STATIC_GATE':'PASS','OWNER_RUN_UX_STANDARD':'PASS','RESULT_LOCALITY':'PASS','RESULT_FORMAT':'PASS','RESULT_AUTO_SURFACE':'PENDING','LAUNCHER_EXIT_TRUTH':'PASS','EXACT_FINAL_PACKAGE_QA':'PASS','RUNTIME_FIXTURE_GATE':'TARGET_RUN_COMPLETED','LEARNING_CLOSEOUT':'KNOWN_INCIDENT_LINKED','DELIVERY_GATE':'PASS' if final_status=='PASS' else 'HOLD','FINAL_STATUS':final_status}; (RUN_DIR/'DELIVERY_RECEIPT.json').write_text(json.dumps(receipt,indent=2),encoding='utf-8'); counts={}
  for s in matrix: counts[s['status']]=counts.get(s['status'],0)+1
- summary='\n'.join(['# Archestro V26 Runtime Recovery — Owner Result','',f'**Final status: {final_status}**','',f'- Result time: {now_iso()}','- AimsTouch: NONE',f'- Canonical source mutated: {CANONICAL_MUTATED}',f'- Installed product mutated: {INSTALL_MUTATED}',f'- Stage counts: {json.dumps(counts)}','- Learning closeout: KNOWN_INCIDENT_LINKED','','## Notes',notes or 'See STAGE_MATRIX.json and EVIDENCE/ for exact receipts.'])+'\n'; (RUN_DIR/'SUMMARY.md').write_text(summary,encoding='utf-8'); (RUN_DIR/'RUN_MANIFEST.json').write_text(json.dumps({'version':RUNNER_VERSION,'stamp':STAMP,'source_root':str(SOURCE_ROOT),'install_root':str(INSTALL_ROOT),'patch_files':list(PATCH_HASHES)},indent=2),encoding='utf-8'); result_zip=RESULT_ROOT/'RESULT_TO_UPLOAD.zip'; tmp=result_zip.with_suffix('.zip.tmp')
+ summary='\n'.join(['# Archestro V27 Owner Visual RTL + Word RTL Closure — Owner Result','',f'**Final status: {final_status}**','',f'- Result time: {now_iso()}','- AimsTouch: NONE',f'- Canonical source mutated: {CANONICAL_MUTATED}',f'- Installed product mutated: {INSTALL_MUTATED}',f'- Stage counts: {json.dumps(counts)}','- Learning closeout: KNOWN_INCIDENT_LINKED','','## Notes',notes or 'See STAGE_MATRIX.json and EVIDENCE/ for exact receipts.'])+'\n'; (RUN_DIR/'SUMMARY.md').write_text(summary,encoding='utf-8'); (RUN_DIR/'RUN_MANIFEST.json').write_text(json.dumps({'version':RUNNER_VERSION,'stamp':STAMP,'source_root':str(SOURCE_ROOT),'install_root':str(INSTALL_ROOT),'patch_files':list(PATCH_HASHES)},indent=2),encoding='utf-8'); result_zip=RESULT_ROOT/'RESULT_TO_UPLOAD.zip'; tmp=result_zip.with_suffix('.zip.tmp')
  if tmp.exists(): tmp.unlink()
  with zipfile.ZipFile(tmp,'w',zipfile.ZIP_DEFLATED,allowZip64=True) as z:
   for name in ['SUMMARY.md','STAGE_MATRIX.json','EVENTS.jsonl','DELIVERY_RECEIPT.json','RUN_MANIFEST.json']:
