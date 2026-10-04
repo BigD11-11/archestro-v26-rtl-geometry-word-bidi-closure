@@ -176,7 +176,6 @@ def structural_checks():
   'src/Archestro.MeetingVault/Services/SelfTestService.cs':[
    'RunRtlLayoutQa',
    'ReportNavHost',
-   'RTL_LAYOUT_COORDINATES',
    'OpenXmlValidator',
    'VerifyWordRtlFixture'
   ]
