@@ -1,0 +1,33 @@
+name: V26 Runtime Recovery CI
+
+on:
+  push:
+    branches:
+      - v26-runtime-recovery-ci
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build exact runtime-recovery package and smoke launcher
+        shell: powershell
+        run: .\recovery\BUILD_RUNTIME_RECOVERY.ps1
+
+      - name: Show receipt
+        shell: powershell
+        run: Get-Content .\_ci_v26_runtime_recovery\FINAL_PACKAGE_RECEIPT.json
+
+      - name: Upload exact final package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARCHESTRO_V26_RUNTIME_RECOVERY_OWNER_RUN_ONE_GO_2026-10-04
+          path: _ci_v26_runtime_recovery/ARCHESTRO_V26_RUNTIME_RECOVERY_OWNER_RUN_ONE_GO_2026-10-04.zip
+          if-no-files-found: error
+          compression-level: 0
