@@ -166,9 +166,12 @@ $receipt = [ordered]@{
     python_archive_sha256 = $PythonExpectedSha
     python_archive_bytes = $PythonExpectedBytes
     product_patch_count = 5
-    product_patch_bytes_changed = $false
-    source_proof_sha256 = 'CE2B9BF8033258419632829AA3EB88A6BD430DC823FA177A455EF34B68B451BB'
-    v25_installed_authority = $true
+    product_patch_changed_file_count = 4
+    product_patch_noop_file_count = 1
+    product_patch_bytes_changed = $true
+    baseline_source_proof_sha256 = 'CE2B9BF8033258419632829AA3EB88A6BD430DC823FA177A455EF34B68B451BB'
+    installed_authority_before_run = 'V26 Root RTL Geometry + Word BiDi TARGET TECHNICAL PASS'
+    v27_candidate_not_installed_at_predelivery = $true
     aims = 'NO_TOUCH'
     taste_pass = 'HOLD'
 }
@@ -199,7 +202,7 @@ foreach ($prop in $patchHashes.PSObject.Properties) {
     Assert-Sha256 (Join-Path (Join-Path $Readback 'PATCH') $prop.Name) $prop.Value | Out-Null
 }
 $rbLauncher = Get-Content -LiteralPath (Join-Path $Readback 'START_HERE.cmd') -Raw
-if ($rbLauncher -match 'V15 FINAL RESIDUAL CLOSEOUT') { throw 'Readback launcher stale V15 identity.' }
+if ($rbLauncher -match 'V15 FINAL RESIDUAL CLOSEOUT|V26 RUNTIME RECOVERY') { throw 'Readback launcher stale prior-version identity.' }
 if (-not (Test-Path -LiteralPath (Join-Path $Readback '.runtime/python/python.exe'))) { throw 'Readback embedded Python missing.' }
 
 @{
