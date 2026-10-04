@@ -22,12 +22,12 @@ jobs:
 
       - name: Show receipt
         shell: powershell
-        run: Get-Content .\_ci_v26_runtime_recovery\FINAL_PACKAGE_RECEIPT.json
+        run: Get-Content .\_ci_v27_owner_visual_rtl_word_rtl\FINAL_PACKAGE_RECEIPT.json
 
       - name: Upload exact final package
         uses: actions/upload-artifact@v4
         with:
           name: ARCHESTRO_V27_OWNER_VISUAL_RTL_WORD_RTL_CLOSURE_ONE_GO_2026-10-05
-          path: _ci_v26_runtime_recovery/ARCHESTRO_V27_OWNER_VISUAL_RTL_WORD_RTL_CLOSURE_ONE_GO_2026-10-05.zip
+          path: _ci_v27_owner_visual_rtl_word_rtl/ARCHESTRO_V27_OWNER_VISUAL_RTL_WORD_RTL_CLOSURE_ONE_GO_2026-10-05.zip
           if-no-files-found: error
           compression-level: 0
