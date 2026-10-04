@@ -1,0 +1,667 @@
+<Window x:Class="Archestro.MeetingVault.Dialogs.IntelligenceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Archestro Intelligence"
+        Width="1180" Height="820"
+        MinWidth="980" MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="CanResizeWithGrip"
+        Background="{DynamicResource AppBackground}"
+        Foreground="{DynamicResource PrimaryTextBrush}"
+        FontFamily="Segoe UI Variable Text">
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="0"
+                        ResizeBorderThickness="7"
+                        GlassFrameThickness="0"
+                        CornerRadius="0"
+                        UseAeroCaptionButtons="False"/>
+  </shell:WindowChrome.WindowChrome>
+  <Window.Resources>
+
+    <!-- V13.8.9 FINAL: theme-safe scrollbars; no native white fallback. -->
+    <Style TargetType="ScrollBar">
+      <Setter Property="Background" Value="{DynamicResource ScrollTrackBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource ScrollThumbBrush}"/>
+      <Setter Property="Width" Value="10"/>
+      <Setter Property="Height" Value="10"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ScrollBar">
+            <Grid x:Name="Root" Background="{TemplateBinding Background}">
+              <Track x:Name="PART_Track" IsDirectionReversed="True" Focusable="False">
+                <Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/></Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                  <Thumb>
+                    <Thumb.Template><ControlTemplate TargetType="Thumb"><Border x:Name="ThumbBody" Background="{DynamicResource ScrollThumbBrush}" CornerRadius="5" Margin="2"/></ControlTemplate></Thumb.Template>
+                  </Thumb>
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/></Track.IncreaseRepeatButton>
+              </Track>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="Height" Value="10"/>
+                <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="IntelProgressBar" TargetType="ProgressBar">
+      <Setter Property="Height" Value="5"/>
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryActionBrush}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ProgressBar">
+            <Grid ClipToBounds="True">
+              <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
+              <Border x:Name="PART_Indicator" HorizontalAlignment="Left" Background="{TemplateBinding Foreground}" CornerRadius="3"/>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="IntelCard" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="14"/>
+      <Setter Property="Padding" Value="14"/>
+    </Style>
+
+    <Style x:Key="IntelButton" TargetType="Button">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="13,9"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="10" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.82"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.42"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="IntelPrimaryButton" TargetType="Button" BasedOn="{StaticResource IntelButton}">
+      <Setter Property="Background" Value="{DynamicResource PrimaryActionBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource PrimaryActionBorderBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryActionTextBrush}"/>
+    </Style>
+
+    <Style x:Key="IntelComboItem" TargetType="ComboBoxItem">
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="Padding" Value="11,8"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBoxItem">
+            <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="7" Margin="3,2">
+              <ContentPresenter/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Fully themed ComboBox: never fall back to the white Windows control surface. -->
+    <Style x:Key="IntelComboBox" TargetType="ComboBox">
+      <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="11,0"/>
+      <Setter Property="ItemContainerStyle" Value="{StaticResource IntelComboItem}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBox">
+            <Grid x:Name="Root">
+              <Border x:Name="ComboBorder"
+                      Background="{TemplateBinding Background}"
+                      BorderBrush="{TemplateBinding BorderBrush}"
+                      BorderThickness="{TemplateBinding BorderThickness}"
+                      CornerRadius="10"/>
+              <ToggleButton Focusable="False" ClickMode="Press"
+                            Background="Transparent" BorderThickness="0"
+                            IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton"><Border Background="Transparent"/></ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <ContentPresenter IsHitTestVisible="False"
+                                Margin="12,0,36,0"
+                                VerticalAlignment="Center"
+                                Content="{TemplateBinding SelectionBoxItem}"
+                                TextElement.Foreground="{DynamicResource PrimaryTextBrush}"/>
+              <Path IsHitTestVisible="False" Width="8" Height="5"
+                    HorizontalAlignment="Right" Margin="0,0,13,0"
+                    VerticalAlignment="Center"
+                    Fill="{DynamicResource SecondaryTextBrush}"
+                    Data="M 0 0 L 4 4 L 8 0 Z"/>
+              <Popup x:Name="PART_Popup"
+                     Placement="Bottom"
+                     IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                     AllowsTransparency="True"
+                     PopupAnimation="Fade">
+                <Border MinWidth="{Binding ActualWidth, ElementName=Root}"
+                        MaxHeight="280" Margin="0,5,0,0"
+                        Background="{DynamicResource SurfaceBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10" Padding="4">
+                  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                HorizontalScrollBarVisibility="Disabled">
+                    <ItemsPresenter/>
+                  </ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/>
+              </Trigger>
+              <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="ComboBorder" Property="Opacity" Value="0.52"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+
+    <Style x:Key="ReportSectionHeading" TargetType="TextBlock">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Style.Triggers>
+        <Trigger Property="FlowDirection" Value="RightToLeft"><Setter Property="TextAlignment" Value="Right"/></Trigger>
+        <Trigger Property="FlowDirection" Value="LeftToRight"><Setter Property="TextAlignment" Value="Left"/></Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="ReportHelpText" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+      <Setter Property="FontSize" Value="9.5"/>
+      <Setter Property="Margin" Value="0,3,0,2"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Style.Triggers>
+        <Trigger Property="FlowDirection" Value="RightToLeft"><Setter Property="TextAlignment" Value="Right"/></Trigger>
+        <Trigger Property="FlowDirection" Value="LeftToRight"><Setter Property="TextAlignment" Value="Left"/></Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="IntelTabControl" TargetType="TabControl">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TabControl">
+            <Grid>
+              <Grid.RowDefinitions>
+              <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
+              <ContentPresenter x:Name="PART_SelectedContentHost"
+                                Grid.Row="0"
+                                ContentSource="SelectedContent"/>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ReportNavButton" TargetType="RadioButton">
+      <Setter Property="MinWidth" Value="160"/>
+      <Setter Property="MinHeight" Value="42"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="Padding" Value="14,9"/>
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="NavBorder" Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="9" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="NavBorder" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+                <Setter TargetName="NavBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/>
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="NavBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/>
+                <Setter TargetName="NavBorder" Property="BorderThickness" Value="2"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="NavBorder" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                <Setter TargetName="NavBorder" Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="NavBorder" Property="Opacity" Value="0.45"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ReportNavHost" TargetType="Grid">
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding FlowDirection, RelativeSource={RelativeSource AncestorType=Window}}" Value="RightToLeft">
+          <Setter Property="HorizontalAlignment" Value="Right"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding FlowDirection, RelativeSource={RelativeSource AncestorType=Window}}" Value="LeftToRight">
+          <Setter Property="HorizontalAlignment" Value="Left"/>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style TargetType="TabItem">
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Padding" Value="16,9"/>
+      <Setter Property="Margin" Value="6,0"/>
+      <Setter Property="MinWidth" Value="156"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TabItem">
+            <Border x:Name="TabBd" Background="{TemplateBinding Background}"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="10" Padding="{TemplateBinding Padding}">
+              <ContentPresenter ContentSource="Header" HorizontalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="TabBd" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                <Setter TargetName="TabBd" Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+
+  <Grid Background="{DynamicResource AppBackground}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="42"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    <Border Grid.Row="0"
+            Background="{DynamicResource ChromeBrush}"
+            BorderBrush="{DynamicResource ChromeBorderBrush}"
+            BorderThickness="0,0,0,1"
+            MouseLeftButtonDown="Chrome_MouseLeftButtonDown">
+      <Grid Margin="14,0,8,0">
+        <TextBlock x:Name="ChromeTitleText"
+                   Text="Archestro Intelligence"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource SecondaryTextBrush}"
+                   FontWeight="SemiBold"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <Button Style="{StaticResource IntelButton}" Content="—" Width="38" Height="28" Padding="0" Margin="0,0,6,0" ToolTip="Minimize" Click="ChromeMinimize_Click"/>
+          <Button x:Name="ChromeMaximizeButton" Style="{StaticResource IntelButton}" Content="□" Width="38" Height="28" Padding="0" Margin="0,0,6,0" ToolTip="Maximize / Restore" Click="ChromeMaximize_Click"/>
+          <Button Style="{StaticResource IntelButton}" Content="✕" Width="38" Height="28" Padding="0" ToolTip="Close" Click="ChromeClose_Click"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" Margin="12">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <Border Grid.Row="0" Style="{StaticResource IntelCard}" Margin="0,0,0,8">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="1.05*"/>
+          <ColumnDefinition Width="16"/>
+          <ColumnDefinition Width="0.95*" MinWidth="430"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel>
+          <TextBlock x:Name="ProductEyebrowText" Text="ARCHESTRO MEETING INTELLIGENCE"
+                     Foreground="{DynamicResource WarningAccentBrush}"
+                     FontSize="10" FontWeight="SemiBold"/>
+          <TextBlock x:Name="MeetingTitleText" FontSize="19" FontWeight="SemiBold" Margin="0,3,0,0"/>
+          <TextBlock x:Name="ProductIntroText" Text="Turn this meeting into a polished report — executive summary, decisions, actions and evidence — or ask questions grounded in this transcript."
+                     Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,5,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
+          <TextBlock x:Name="ReportLensLabel" Text="Report lens"
+                     Foreground="{DynamicResource SecondaryTextBrush}"
+                     FontSize="10" Margin="0,0,0,5"/>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ComboBox x:Name="ModeCombo"
+                      Height="40"
+                      Style="{StaticResource IntelComboBox}"
+                      SelectionChanged="ModeCombo_SelectionChanged"/>
+            <Button x:Name="GenerateButton"
+                    Grid.Column="1"
+                    Style="{StaticResource IntelPrimaryButton}"
+                    Content="Generate report"
+                    MinWidth="150"
+                    Margin="8,0,0,0"
+                    Click="Generate_Click"/>
+          </Grid>
+          <TextBlock x:Name="ModeHelpText"
+                     Foreground="{DynamicResource SecondaryTextBrush}"
+                     FontSize="9.5" TextWrapping="Wrap" Margin="0,6,0,0"/>
+          <WrapPanel Margin="0,8,0,0" HorizontalAlignment="Right">
+            <Button x:Name="ExportWordButton"
+                    Style="{StaticResource IntelButton}"
+                    Content="Export Word"
+                    IsEnabled="False"
+                    Margin="0,0,6,0"
+                    Click="ExportWord_Click"/>
+            <Button x:Name="OpenReportFolderButton"
+                    Style="{StaticResource IntelButton}"
+                    Content="Open file location"
+                    IsEnabled="False"
+                    Click="OpenReportFolder_Click"/>
+          </WrapPanel>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="1" Style="{StaticResource IntelCard}" Padding="10" Margin="0,0,0,8">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <Border x:Name="ReadinessBadge"
+                  Background="{DynamicResource AccentSoftBrush}"
+                  BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                  BorderThickness="1" CornerRadius="10"
+                  Padding="10,6" Margin="0,0,10,0">
+            <TextBlock x:Name="ReadinessText" Text="Checking…" FontWeight="SemiBold"/>
+          </Border>
+          <TextBlock Grid.Column="1" x:Name="ReadinessDetailText"
+                     Foreground="{DynamicResource SecondaryTextBrush}"
+                     VerticalAlignment="Center" TextWrapping="Wrap"/>
+          <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+            <TextBlock x:Name="BusyText" Text="" Foreground="{DynamicResource WarningAccentBrush}" FontWeight="SemiBold"/>
+            <TextBlock x:Name="ReportElapsedText" Text="" Foreground="{DynamicResource SecondaryTextBrush}" Margin="10,0,0,0" FontWeight="SemiBold"/>
+          </StackPanel>
+        </Grid>
+        <Grid Grid.Row="1" Margin="0,7,0,0">
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <ProgressBar x:Name="ReportProgressBar" Grid.Row="0" Minimum="0" Maximum="100" Value="0" Style="{StaticResource IntelProgressBar}" Visibility="Collapsed"/>
+          <Grid Grid.Row="1" Margin="0,6,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+              <TextBlock x:Name="ReportWritingGlyph" Text="✎" Foreground="{DynamicResource WarningAccentBrush}" FontSize="14" Visibility="Collapsed" Margin="0,0,6,0">
+                <TextBlock.RenderTransform><TranslateTransform x:Name="ReportWritingTransform"/></TextBlock.RenderTransform>
+              </TextBlock>
+              <TextBlock x:Name="ReportProgressText" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="9.5" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            </StackPanel>
+            <TextBlock x:Name="ReportEtaText" Grid.Column="1" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="9.5" FontWeight="SemiBold" Margin="12,0,0,0"/>
+          </Grid>
+        </Grid>
+      </Grid>
+    </Border>
+
+    <Grid x:Name="ReportContentArea" Grid.Row="2" FlowDirection="LeftToRight">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+      <Grid x:Name="ReportNavBounds" Grid.Row="0" HorizontalAlignment="Stretch" Margin="0,0,0,10">
+        <Grid x:Name="ReportNavHost" Style="{StaticResource ReportNavHost}"
+                    FlowDirection="LeftToRight"
+                    KeyboardNavigation.TabNavigation="Once">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/><ColumnDefinition Width="10"/>
+            <ColumnDefinition Width="Auto"/><ColumnDefinition Width="10"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <RadioButton x:Name="ReportNavReportButton" GroupName="ReportNavigation" Style="{StaticResource ReportNavButton}"
+                       Content="Meeting Report" IsChecked="True" Checked="ReportNav_Checked" AutomationProperties.Name="Meeting Report"/>
+          <RadioButton x:Name="ReportNavMeetingAskButton" Grid.Column="2" GroupName="ReportNavigation" Style="{StaticResource ReportNavButton}"
+                       Content="Ask this meeting" Checked="ReportNav_Checked" AutomationProperties.Name="Ask this meeting"/>
+          <RadioButton x:Name="ReportNavVaultAskButton" Grid.Column="4" GroupName="ReportNavigation" Style="{StaticResource ReportNavButton}"
+                       Content="Ask my vault" Checked="ReportNav_Checked" AutomationProperties.Name="Ask my vault"/>
+        </Grid>
+      </Grid>
+    <TabControl x:Name="IntelTabs"
+                Grid.Row="1"
+                Style="{StaticResource IntelTabControl}"
+                HorizontalAlignment="Stretch">
+      <TabItem x:Name="ReportTab" Header="Meeting Report">
+        <ScrollViewer x:Name="ReportScrollViewer" FlowDirection="LeftToRight" VerticalScrollBarVisibility="Auto">
+          <StackPanel x:Name="ReportContentRoot" Margin="0,8,0,0" HorizontalAlignment="Stretch"
+                      FlowDirection="LeftToRight">
+            <Border x:Name="ExecutiveSummaryCard" Style="{StaticResource IntelCard}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+              <StackPanel>
+                <DockPanel LastChildFill="True">
+                  <TextBlock x:Name="ExecutiveSummaryHeading" Text="Executive summary"
+                             Foreground="{DynamicResource WarningAccentBrush}"
+                             FontSize="16" FontWeight="SemiBold"/>
+                  <Border x:Name="ReportStateBadge" DockPanel.Dock="Right"
+                          Background="{DynamicResource AccentSoftBrush}"
+                          BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1"
+                          CornerRadius="8" Padding="8,4" Margin="10,0,0,0">
+                    <TextBlock x:Name="ReportStateText" Text="Not generated" FontSize="9.5"/>
+                  </Border>
+                </DockPanel>
+                <TextBlock x:Name="SummaryText" TextWrapping="Wrap" LineHeight="22" Margin="0,10,0,0"/>
+              </StackPanel>
+            </Border>
+
+            <Grid x:Name="ReportSectionGrid" FlowDirection="LeftToRight">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+              <Border x:Name="TopicsCard" Grid.Row="0" Grid.Column="0" Style="{StaticResource IntelCard}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                <StackPanel>
+                  <TextBlock x:Name="TopicsHeading" Text="Key topics" Style="{StaticResource ReportSectionHeading}"/>
+                  <TextBlock x:Name="TopicsHelp" Text="The themes that shaped the meeting." Style="{StaticResource ReportHelpText}"/>
+                  <ItemsControl x:Name="TopicsList"/>
+                </StackPanel>
+              </Border>
+              <Border x:Name="KeyPointsCard" Grid.Row="0" Grid.Column="2" Style="{StaticResource IntelCard}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                <StackPanel>
+                  <TextBlock x:Name="KeyPointsHeading" Text="Key points" Style="{StaticResource ReportSectionHeading}"/>
+                  <TextBlock x:Name="KeyPointsHelp" Text="The most useful facts to retain." Style="{StaticResource ReportHelpText}"/>
+                  <ItemsControl x:Name="KeyPointsList"/>
+                </StackPanel>
+              </Border>
+              <Border x:Name="DecisionsCard" Grid.Row="1" Grid.Column="0" Style="{StaticResource IntelCard}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                <StackPanel>
+                  <TextBlock x:Name="DecisionsHeading" Text="Decisions" Style="{StaticResource ReportSectionHeading}"/>
+                  <TextBlock x:Name="DecisionsHelp" Text="What was actually decided." Style="{StaticResource ReportHelpText}"/>
+                  <ItemsControl x:Name="DecisionsList"/>
+                </StackPanel>
+              </Border>
+              <Border x:Name="ActionsCard" Grid.Row="1" Grid.Column="2" Style="{StaticResource IntelCard}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                <StackPanel>
+                  <TextBlock x:Name="ActionsHeading" Text="Next actions" Style="{StaticResource ReportSectionHeading}"/>
+                  <TextBlock x:Name="ActionsHelp" Text="What needs to happen next and who owns it." Style="{StaticResource ReportHelpText}"/>
+                  <ItemsControl x:Name="ActionsList"/>
+                </StackPanel>
+              </Border>
+              <Border x:Name="CommitmentsCard" Grid.Row="2" Grid.Column="0" Style="{StaticResource IntelCard}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                <StackPanel>
+                  <TextBlock x:Name="CommitmentsHeading" Text="Commitments &amp; deadlines" Style="{StaticResource ReportSectionHeading}"/>
+                  <TextBlock x:Name="CommitmentsHelp" Text="Promises, dates and time-sensitive follow-ups." Style="{StaticResource ReportHelpText}"/>
+                  <ItemsControl x:Name="CommitmentsList"/>
+                </StackPanel>
+              </Border>
+              <Border x:Name="RisksCard" Grid.Row="2" Grid.Column="2" Style="{StaticResource IntelCard}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                <StackPanel>
+                  <TextBlock x:Name="RisksHeading" Text="Risks &amp; open questions" Style="{StaticResource ReportSectionHeading}"/>
+                  <TextBlock x:Name="RisksHelp" Text="What remains unclear, blocked or exposed." Style="{StaticResource ReportHelpText}"/>
+                  <ItemsControl x:Name="RisksList"/>
+                </StackPanel>
+              </Border>
+              <Border x:Name="ImportantMomentsCard" Grid.Row="3" Grid.Column="0" Style="{StaticResource IntelCard}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                <StackPanel>
+                  <TextBlock x:Name="ImportantMomentsHeading" Text="Important moments" Style="{StaticResource ReportSectionHeading}"/>
+                  <TextBlock x:Name="ImportantMomentsHelp" Text="Moments worth returning to in the recording." Style="{StaticResource ReportHelpText}"/>
+                  <ItemsControl x:Name="ImportantMomentsList"/>
+                </StackPanel>
+              </Border>
+              <Border x:Name="ParticipantsCard" Grid.Row="3" Grid.Column="2" Style="{StaticResource IntelCard}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                <StackPanel>
+                  <TextBlock x:Name="ParticipantsHeading" Text="Participant contributions" Style="{StaticResource ReportSectionHeading}"/>
+                  <TextBlock x:Name="ParticipantsHelp" Text="What each confirmed/labeled speaker contributed." Style="{StaticResource ReportHelpText}"/>
+                  <ItemsControl x:Name="ParticipantsList"/>
+                </StackPanel>
+              </Border>
+            </Grid>
+
+            <Border Style="{StaticResource IntelCard}" Margin="0,0,0,10">
+              <StackPanel>
+                <TextBlock x:Name="FollowUpHeading" Text="Follow-up" Style="{StaticResource ReportSectionHeading}"/>
+                <TextBlock x:Name="FollowUpHelp" Text="A clean agenda for what should happen after this meeting." Style="{StaticResource ReportHelpText}"/>
+                <ItemsControl x:Name="FollowUpList"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem x:Name="AskMeetingTab" Header="Ask this meeting">
+        <Grid FlowDirection="{Binding FlowDirection, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,12,0,0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <TextBlock x:Name="AskMeetingHelp" Text="Ask a direct question about this meeting. Archestro answers only from this transcript and shows the evidence it used."
+                     Foreground="{DynamicResource SecondaryTextBrush}" Margin="2,0,0,8" TextWrapping="Wrap"/>
+          <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBox x:Name="MeetingQuestionBox" MinHeight="44" Padding="12"
+                     Background="{DynamicResource InputBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"
+                     BorderBrush="{DynamicResource BorderBrush}"/>
+            <Button x:Name="AskMeetingButton" Grid.Column="1"
+                    Style="{StaticResource IntelPrimaryButton}"
+                    Content="Ask this meeting" Margin="8,0,0,0"
+                    Click="AskMeeting_Click"/>
+          </Grid>
+          <Border x:Name="MeetingQuestionEchoBorder" Grid.Row="2" Visibility="Collapsed" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="11" Margin="0,10,0,0" HorizontalAlignment="Stretch">
+            <TextBlock x:Name="MeetingQuestionEchoText" TextWrapping="Wrap"/>
+          </Border>
+          <TextBox x:Name="MeetingAnswerBox" Grid.Row="3" Margin="0,10,0,0"
+                   IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                   VerticalScrollBarVisibility="Auto" Padding="14"
+                   FontSize="12"
+                   Background="{DynamicResource PanelBrush}"
+                   Foreground="{DynamicResource PrimaryTextBrush}"
+                   BorderBrush="{DynamicResource BorderBrush}"/>
+        </Grid>
+      </TabItem>
+
+      <TabItem x:Name="AskVaultTab" Header="Ask my vault">
+        <Grid FlowDirection="{Binding FlowDirection, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,12,0,0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <TextBlock x:Name="AskVaultHelp" Text="Ask across your local meeting archive. For exact words or phrases, use the main Vault Intelligence search to see every matching meeting."
+                     Foreground="{DynamicResource SecondaryTextBrush}" Margin="2,0,0,8" TextWrapping="Wrap"/>
+          <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBox x:Name="VaultQuestionBox" MinHeight="44" Padding="12"
+                     Background="{DynamicResource InputBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"
+                     BorderBrush="{DynamicResource BorderBrush}"/>
+            <Button x:Name="AskVaultButton" Grid.Column="1"
+                    Style="{StaticResource IntelPrimaryButton}"
+                    Content="Ask my vault" Margin="8,0,0,0"
+                    Click="AskVault_Click"/>
+          </Grid>
+          <Border x:Name="VaultQuestionEchoBorder" Grid.Row="2" Visibility="Collapsed" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="11" Margin="0,10,0,0" HorizontalAlignment="Stretch">
+            <TextBlock x:Name="VaultQuestionEchoText" TextWrapping="Wrap"/>
+          </Border>
+          <TextBox x:Name="VaultAnswerBox" Grid.Row="3" Margin="0,10,0,0"
+                   IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                   VerticalScrollBarVisibility="Auto" Padding="14"
+                   FontSize="12"
+                   Background="{DynamicResource PanelBrush}"
+                   Foreground="{DynamicResource PrimaryTextBrush}"
+                   BorderBrush="{DynamicResource BorderBrush}"/>
+        </Grid>
+      </TabItem>
+    </TabControl>
+    </Grid>
+
+    <Border Grid.Row="3" Style="{StaticResource IntelCard}" Padding="10" Margin="0,12,0,0">
+      <Grid>
+        <TextBlock x:Name="StatusText"
+                   Foreground="{DynamicResource SecondaryTextBrush}"
+                   VerticalAlignment="Center"/>
+        <Button x:Name="StopAudioButton" Style="{StaticResource IntelButton}"
+                HorizontalAlignment="Right"
+                Visibility="Collapsed"
+                Content="Stop audio"
+                Click="StopAudio_Click"/>
+      </Grid>
+    </Border>
+    </Grid>
+  </Grid>
+</Window>

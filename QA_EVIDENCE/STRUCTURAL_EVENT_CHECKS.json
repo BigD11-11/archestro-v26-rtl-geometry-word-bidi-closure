@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "baselineNamedControlCount": 99,
+  "candidateNamedControlCount": 99,
+  "removedControlNames": [],
+  "addedControlNames": [],
+  "baselineEventBindingCount": 14,
+  "candidateEventBindingCount": 14,
+  "removedEventBindings": [],
+  "addedEventBindings": [],
+  "appXamlUnchanged": true,
+  "reportPhysicalShellLtr": [
+    {
+      "name": "ReportContentArea",
+      "explicitLtr": true
+    },
+    {
+      "name": "ReportNavHost",
+      "explicitLtr": true
+    },
+    {
+      "name": "ReportScrollViewer",
+      "explicitLtr": true
+    },
+    {
+      "name": "ReportContentRoot",
+      "explicitLtr": true
+    },
+    {
+      "name": "ReportSectionGrid",
+      "explicitLtr": true
+    }
+  ],
+  "aimsTouched": false,
+  "featureRemoved": false
+}
