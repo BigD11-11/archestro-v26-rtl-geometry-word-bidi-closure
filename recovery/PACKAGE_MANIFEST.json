@@ -1,0 +1,12 @@
+{
+  "package": "ARCHESTRO_V26_RUNTIME_RECOVERY_OWNER_RUN_ONE_GO_2026-10-04.zip",
+  "version": "V26 RUNTIME RECOVERY — ROOT RTL GEOMETRY + WORD BIDI",
+  "installed_authority_before_run": "V25 RTL Functional Closure PASS",
+  "product_patch_file_count": 5,
+  "product_patch_bytes_changed_from_frozen_v26": false,
+  "wrapper_change_only": true,
+  "runtime_strategy": "bundled official CPython 3.13.15 embeddable x64",
+  "external_python_required": false,
+  "aims": "NO_TOUCH",
+  "taste_pass": "HOLD"
+}
