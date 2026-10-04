@@ -44,7 +44,7 @@ s = replace_required(s,
     "ReportSectionGrid")
 for name in ("TopicsCard","KeyPointsCard","DecisionsCard","ActionsCard","CommitmentsCard","RisksCard","ImportantMomentsCard","ParticipantsCard"):
     s = replace_required(s, f'x:Name="{name}"', f'x:Name="{name}" FlowDirection="{{Binding FlowDirection, RelativeSource={{RelativeSource AncestorType=Window}}}}"', name)
-p.write_text(s, encoding="utf-8")
+p.write_bytes(s.encode("utf-8"))
 
 # Code-behind: explicit physical placement in LTR shells, RTL only inside Arabic content.
 p = root / "Dialogs" / "IntelligenceWindow.xaml.cs"
@@ -99,7 +99,7 @@ new = """    private void ApplyReportPhysicalOrder(bool rtl)
         }
     }"""
 s = replace_required(s, old, new, "ApplyReportPhysicalOrder")
-p.write_text(s, encoding="utf-8")
+p.write_bytes(s.encode("utf-8"))
 
 # Word exporter: create modern settings and use logical start alignment for RTL.
 p = root / "Services" / "MeetingReportWordExporter.cs"
@@ -143,7 +143,7 @@ insert = """    private static void AddDocumentSettings(MainDocumentPart main, b
 
 """
 s = replace_required(s, needle, insert + needle, "AddDocumentSettings method")
-p.write_text(s, encoding="utf-8")
+p.write_bytes(s.encode("utf-8"))
 
 # QA: assert physical shell/content split and serialized Word settings/start alignment.
 p = root / "Services" / "SelfTestService.cs"
@@ -177,4 +177,4 @@ insert = '''            var settingsEntry = archive.GetEntry("word/settings.xml"
 '''
 s = replace_required(s, needle, insert + needle, "settings assertions")
 s = replace_required(s, '?.Value == "right"),', '?.Value == "start"),', "semantic proof start count")
-p.write_text(s, encoding="utf-8")
+p.write_bytes(s.encode("utf-8"))
