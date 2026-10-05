@@ -334,7 +334,7 @@ $expectedSourceCommit='482c7d967993daa57513549bc77464ebad200f6a';$null=(& $gitEx
     BeginStage '5/8 Staged runtime QA' 'Run core, RTL, matrix, fake cloud, local AI, Speaker and DOCX proof.'
     $qa=Join-Path $script:RunRoot 'QA_APP';Copy-Item -LiteralPath $publish -Destination $qa -Recurse -Force
     NewJunction (Join-Path $qa 'AI\Models') (Join-Path $script:Install 'AI\Models');NewJunction (Join-Path $qa 'AI\llama') (Join-Path $script:Install 'AI\llama');NewJunction (Join-Path $qa 'SpeakerModels') (Join-Path $script:Install 'SpeakerModels')
-    $env:ARCHESTRO_WORD_FIXTURE_DIR=Join-Path $script:Contents 'QA_EVIDENCE\V28R1\DOCX_FIXTURES'
+    $env:ARCHESTRO_WORD_FIXTURE_DIR=Join-Path $script:RunRoot 'Staged\DOCX_FIXTURES'
     $tests=@(@{flag='--self-test';name='01_SELF_TEST';timeout=600},@{flag='--rtl-layout-qa';name='02_RTL_LAYOUT';timeout=600},@{flag='--v13.8.9-qa';name='03_V13_8_9';timeout=600},@{flag='--v13.8-matrix';name='04_V13_8_MATRIX';timeout=900},@{flag='--cloud-provider-qa';name='05_CLOUD_FAKE_HTTP';timeout=600},@{flag='--ai-self-test';name='06_LOCAL_AI';timeout=1800},@{flag='--speaker-self-test';name='07_SPEAKER';timeout=1200})
     foreach($test in $tests){
         if($test.flag -eq '--self-test'){$env:ARCHESTRO_WORD_BIDI_QA_OUTPUT=Join-Path $script:RunRoot 'Staged\WORD_BIDI_SEMANTIC_PROOF.json';$env:ARCHESTRO_V28_FUNCTIONAL_QA_OUTPUT=Join-Path $script:RunRoot 'Staged\FUNCTIONAL_QA.json'}
@@ -372,7 +372,7 @@ $expectedSourceCommit='482c7d967993daa57513549bc77464ebad200f6a';$null=(& $gitEx
     EndStage 'PASS' 'V25 app backup retained; tested V28 executable installed; large assets reused'
 
     BeginStage '7/8 Installed QA and startup' 'Repeat all required checks at the installed path and verify the real main window.'
-    $env:ARCHESTRO_WORD_FIXTURE_DIR=Join-Path $script:Contents 'QA_EVIDENCE\V28R1\DOCX_FIXTURES'
+    $env:ARCHESTRO_WORD_FIXTURE_DIR=Join-Path $script:RunRoot 'Installed\DOCX_FIXTURES'
     foreach($test in $tests){
         if($test.flag -eq '--self-test'){$env:ARCHESTRO_WORD_BIDI_QA_OUTPUT=Join-Path $script:RunRoot 'Installed\WORD_BIDI_SEMANTIC_PROOF.json';$env:ARCHESTRO_V28_FUNCTIONAL_QA_OUTPUT=Join-Path $script:RunRoot 'Installed\FUNCTIONAL_QA.json'}
         $name='INSTALLED_'+$test.name
