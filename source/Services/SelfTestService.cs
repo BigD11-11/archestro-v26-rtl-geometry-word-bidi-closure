@@ -399,6 +399,24 @@ public static class SelfTestService
                 ? SynthesisJson()
                 : ExtractionJson());
 
+        // Run WPF ownership verification before the first incomplete await, on the STA dispatcher.
+        var closeMeeting = MakeMeeting("resilience-window-close");
+        var closeService = Service(closeMeeting,
+            (_, _, _, _, _, _) => new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously).Task);
+        using (var closeCts = new CancellationTokenSource())
+        {
+            var tokenAfterClose = closeCts.Token;
+            var window = new IntelligenceWindow(closeMeeting, closeService, layoutQa: true)
+            {
+                Left = -3000, Top = -3000, ShowInTaskbar = false, ShowActivated = false
+            };
+            typeof(IntelligenceWindow).GetField("_reportGenerationCts", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .SetValue(window, closeCts);
+            window.Show();
+            window.Close();
+            RequireFixture(tokenAfterClose.IsCancellationRequested, "Closing the report window did not cancel its active report CTS.");
+        }
+
         // 1, 10: normal Local report is durable and progress passes merge, validation and synthesis.
         var normalMeeting = MakeMeeting("resilience-normal");
         var normal = Service(normalMeeting, FastFixture);
@@ -539,22 +557,6 @@ public static class SelfTestService
                        Directory.Exists(saveLegacy) && !File.Exists(Path.Combine(reportsFolder, "MeetingReport.txt")) &&
                        Directory.GetFiles(reportsFolder, "*.v28r1-*.tmp").Length == 0 && Directory.GetFiles(reportsFolder, "*.docx").Length == 0,
             "Failed multi-file save did not restore the valid cache and remove partial report outputs.");
-
-        // 7: the close-window cancellation path cancels the owned report operation.
-        using var closeCts = new CancellationTokenSource();
-        var tokenAfterClose = closeCts.Token;
-        Application.Current.Dispatcher.Invoke(() =>
-        {
-            var window = new IntelligenceWindow(cancelMeeting, cancelService, layoutQa: true)
-            {
-                Left = -3000, Top = -3000, ShowInTaskbar = false, ShowActivated = false
-            };
-            typeof(IntelligenceWindow).GetField("_reportGenerationCts", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-                .SetValue(window, closeCts);
-            window.Show();
-            window.Close();
-        });
-        RequireFixture(tokenAfterClose.IsCancellationRequested, "Closing the report window did not cancel its active report CTS.");
 
         static string TranscriptHash(string path) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)));
     }
