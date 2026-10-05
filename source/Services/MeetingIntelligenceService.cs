@@ -603,7 +603,7 @@ Verified facts:
         LogReportFormattingFallback(logTag, raw);
         WriteReportDiagnostic("json-repair-start", $"stage={logTag}; responseCharacters={raw.Length}");
         var repairSystem = compactLocalOutput
-            ? "Regenerate the evidence-grounded extraction from the supplied source evidence. Return minified JSON with shape {\"items\":[{\"category\":\"keyPoint\",\"text\":\"\",\"owner\":\"\",\"due\":\"\",\"severity\":\"\",\"evidence\":[\"E0001\"]}]}. Include at most six concise items. Every item must cite exact supplied evidence IDs. Do not infer or invent. Return JSON only."
+            ? system + "\n\nV28R2 bounded regeneration: the previous response was incomplete. Regenerate from the supplied source evidence, preserving every language, evidence, speaker and no-invention requirement above. Return minified JSON with shape {\"items\":[{\"category\":\"keyPoint\",\"text\":\"\",\"owner\":\"\",\"due\":\"\",\"severity\":\"\",\"evidence\":[\"E0001\"]}]}. Include at most six concise items. Every item must cite exact supplied evidence IDs. Return JSON only."
             : "Repair the supplied local model output into valid JSON matching the requested shape. Preserve facts exactly; do not add anything. Return JSON only.";
         var repairUser = compactLocalOutput
             ? user + "\n\nThe previous response was not valid complete JSON. Regenerate from the evidence above; do not copy an incomplete response."

@@ -522,12 +522,14 @@ public static class SelfTestService
         var regenerateEnglishService = Service(regenerateEnglishMeeting, (system, user, tokens, _, context, _) =>
         {
             if (system.Contains("Create a concise customer-facing", StringComparison.Ordinal)) return Task.FromResult(englishSynthesis);
-            if (system.StartsWith("Regenerate the evidence-grounded extraction", StringComparison.Ordinal))
+            if (system.Contains("V28R2 bounded regeneration", StringComparison.Ordinal))
             {
                 regenerateCalls++;
                 regenerateTokens = tokens;
                 regenerateContext = context;
-                regenerateHasEvidence = user.Contains("[E0001]", StringComparison.Ordinal);
+                regenerateHasEvidence = user.Contains("[E0001]", StringComparison.Ordinal) &&
+                                        system.Contains("clear professional English", StringComparison.Ordinal) &&
+                                        system.Contains("Never invent a fact", StringComparison.Ordinal);
                 return Task.FromResult(CompactEnglishExtractionJson("The project team confirmed the delivery plan and schedule update before Friday."));
             }
             return Task.FromResult("{\"items\":[{\"category\":\"keyPoint\",\"text\":\"unfinished value");
@@ -536,6 +538,28 @@ public static class SelfTestService
         var boundedRegenerationPassed = regenerateCalls == 1 && regenerateTokens == 520 && regenerateContext == 4096 &&
                                         regenerateHasEvidence && regenerateEnglishReport.KeyPoints.Any(item => item.Evidence.Contains("E0001"));
         RequireFixture(boundedRegenerationPassed, "Invalid English JSON did not use exactly one bounded evidence-grounded regeneration.");
+
+        var arabicRegenerateMeeting = MakeMeeting("v28r2-arabic-language-preservation");
+        var arabicRegenerateCalls = 0;
+        var arabicLanguageRulePreserved = false;
+        var arabicRegenerateService = Service(arabicRegenerateMeeting, (system, user, _, _, _, _) =>
+        {
+            if (system.Contains("Create a concise customer-facing", StringComparison.Ordinal))
+                return Task.FromResult(SynthesisJson());
+            if (system.Contains("V28R2 bounded regeneration", StringComparison.Ordinal))
+            {
+                arabicRegenerateCalls++;
+                arabicLanguageRulePreserved = user.Contains("[E0001]", StringComparison.Ordinal) &&
+                                              system.Contains("clear professional Arabic", StringComparison.Ordinal) &&
+                                              system.Contains("Never invent a fact", StringComparison.Ordinal);
+                return Task.FromResult(CompactExtractionJson());
+            }
+            return Task.FromResult("{\"items\":[{\"category\":\"keyPoint\",\"text\":\"unfinished value");
+        });
+        var arabicRegeneratedReport = await arabicRegenerateService.AnalyzeMeetingAsync(arabicRegenerateMeeting, "General", reportLanguage: "ar").ConfigureAwait(false);
+        var arabicRegenerationPassed = arabicRegenerateCalls == 1 && arabicLanguageRulePreserved &&
+                                       arabicRegeneratedReport.ReportLanguage == "ar" && arabicRegeneratedReport.KeyPoints.Any(item => item.Evidence.Contains("E0001"));
+        RequireFixture(arabicRegenerationPassed, "English/Arabic language and evidence contracts were not preserved during bounded regeneration.");
 
         var truncatedEnglishMeeting = EnglishMeeting("v28r2-english-terminal-truncation");
         var truncatedEnglishPath = MeetingIntelligenceService.GetCanonicalReportJsonPath(truncatedEnglishMeeting);
@@ -572,7 +596,8 @@ public static class SelfTestService
                 responseOver714Characters = largeEnglishPassed, framedCompleteJson = framedEnglishPassed,
                 boundedRegeneration = boundedRegenerationPassed, regenerationCalls = regenerateCalls,
                 regenerateMaxTokens = regenerateTokens, regenerateContextTokens = regenerateContext,
-                sourceEvidencePreserved = regenerateHasEvidence, truncatedJsonRejected = validCachePreserved,
+                sourceEvidencePreserved = regenerateHasEvidence, arabicLanguageRulePreserved = arabicRegenerationPassed,
+                truncatedJsonRejected = validCachePreserved,
                 validCachePreservedAfterFailure = validCachePreserved
             }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
         }
