@@ -387,6 +387,8 @@ public static class SelfTestService
                 openItems = Array.Empty<object>(), commercialPoints = Array.Empty<object>(), importantMoments = Array.Empty<object>(),
                 participantContributions = Array.Empty<object>(), followUp = Array.Empty<object>()
             });
+        static string CompactExtractionJson() =>
+            System.Text.Json.JsonSerializer.Serialize(new { items = new[] { new { category = "keyPoint", text = "تمت مراجعة خطة التشغيل والموارد المطلوبة.", evidence = new[] { "E0001" } } } });
         static string SynthesisJson(string summary = "راجع الفريق خطة التشغيل والموارد المطلوبة، واتفق على متابعة الجدول.") =>
             System.Text.Json.JsonSerializer.Serialize(new { executiveSummary = summary, keyPoints = Array.Empty<object>() });
         MeetingIntelligenceService Service(MeetingRecord meeting,
@@ -462,6 +464,16 @@ public static class SelfTestService
         catch (InvalidOperationException exception) when (exception.Message.Contains("لم ينتج التحليل", StringComparison.Ordinal)) { emptyRejected = true; }
         RequireFixture(emptyRejected && !File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(emptyMeeting)),
             "An empty extraction DTO was saved as a Ready report instead of failing safely.");
+        // 2a: compact Local JSON maps back into the existing evidence-linked report categories.
+        var compactMeeting = MakeMeeting("resilience-compact-local-json");
+        var compactService = Service(compactMeeting, (system, _, _, _, _, _) =>
+            system.Contains("Create a concise customer-facing", StringComparison.Ordinal)
+                ? Task.FromResult(SynthesisJson())
+                : Task.FromResult(CompactExtractionJson()));
+        var compactReport = await compactService.AnalyzeMeetingAsync(compactMeeting, "General", reportLanguage: "ar").ConfigureAwait(false);
+        RequireFixture(compactReport.ReportLanguage == "ar" && compactReport.KeyPoints.Any(x => x.Evidence.Contains("E0001")) &&
+                       File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(compactMeeting)),
+            "Compact Local extraction JSON did not map, validate and save through the regular report path.");
         // 2a: one Local extraction timeout gets exactly one compact, bounded retry.
         var retryMeeting = MakeMeeting("resilience-extract-compact-retry");
         var extractionAttempts = 0;
@@ -469,7 +481,7 @@ public static class SelfTestService
         var compactRetryHasEvidence = false;
         var retryService = Service(retryMeeting, (system, user, tokens, _, _, _) =>
         {
-            if (system.Contains("Extract concise factual report material", StringComparison.Ordinal))
+            if (system.Contains("Never invent a fact", StringComparison.Ordinal))
             {
                 if (Interlocked.Increment(ref extractionAttempts) == 1)
                     return new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously).Task;

@@ -1,0 +1,54 @@
+{
+  "runId": "RUN_20261006_004233",
+  "meeting": {
+    "durationSeconds": 62,
+    "evidenceLines": 31,
+    "chunkCount": 1,
+    "provider": "Local",
+    "cloudExternalNetwork": false
+  },
+  "extract": {
+    "maxTokens": 320,
+    "promptCharacters": 3989,
+    "serverHealthy": true,
+    "requestStatusCode": 200,
+    "serverInferenceElapsedMs": 125704,
+    "requestElapsedMs": 145170,
+    "responseCharacters": 712,
+    "parseSucceeded": false,
+    "jsonShapeSummary": "not captured by prior build; raw output excluded"
+  },
+  "repair": {
+    "entered": true,
+    "maxTokens": 320,
+    "promptCharacters": 877,
+    "elapsedMs": 91349,
+    "responseCharacters": 711,
+    "parseSucceeded": false
+  },
+  "terminal": {
+    "lastEnteredStage": "chunk-repair",
+    "lastCompletedStage": "json-repair-complete",
+    "completedDtos": 0,
+    "extractChunkCount": 1,
+    "mergeEntered": false,
+    "validateEntered": false,
+    "saveEntered": false,
+    "reportSaved": false,
+    "cachePreserved": true,
+    "elapsedMs": 236599,
+    "result": "localized failure; no Ready report"
+  },
+  "data": {
+    "databaseIntegrity": "ok",
+    "foreignKeyErrors": 0,
+    "logicalRows": 44,
+    "settingsEqual": true,
+    "protectedDataDeltaCount": 0,
+    "rollback": "V25 + exact DB/WAL/SHM/settings snapshot restored",
+    "v25ExeSha256": "76985810D7C9E8324BF0FCDC228277834CCEED7FC5674CEF3CB3042D9978EE81"
+  },
+  "secrets": "No key provisioned",
+  "aims": "NO_TOUCH",
+  "tastePass": "HOLD"
+}
