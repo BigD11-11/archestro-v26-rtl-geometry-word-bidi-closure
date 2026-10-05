@@ -13,7 +13,7 @@ $script:Result = Join-Path $script:Root 'Result'
 $script:RunRoot = Join-Path $script:Result ('RUN_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))
 $script:Zip = Join-Path $script:Root 'V28R1_SOURCE_AND_PROOF.zip'
 $script:Contents = $script:Root
-$script:ExpectedZip = 'A3D9370575FC7BBCE3B1050109A59956BD1DF2D4BAADACA131964EF3F236F42F'
+$script:ExpectedZip = '305225431839A05823541C6F5C10375D39CC811EF2B9D472BADEBFD75F99EA03'
 $script:V25Exe = '76985810D7C9E8324BF0FCDC228277834CCEED7FC5674CEF3CB3042D9978EE81'
 $script:Repo = $script:Root
 $script:BranchSource = Join-Path $script:Repo 'source'
@@ -302,7 +302,7 @@ try {
     $sourceHead=(& $gitExe -C $script:Repo rev-parse HEAD 2>&1 | Out-String).Trim()
     $sourceBranch=(& $gitExe -C $script:Repo branch --show-current 2>&1 | Out-String).Trim()
     $sourceDirty=(& $gitExe -C $script:Repo status --porcelain -- source 2>&1 | Out-String).Trim()
-    $expectedSourceCommit='45dac489a87ca1eab908eb3e7da8a70d87306201';$null=(& $gitExe -C $script:Repo merge-base --is-ancestor $expectedSourceCommit HEAD 2>&1);if($LASTEXITCODE -ne 0 -or $sourceBranch -ne 'codex/v28r1-local-report-66-fix' -or $sourceDirty){throw ('Source tree is not clean on the exact V28R1 branch/commit: '+$sourceHead+' '+$sourceBranch+' '+$sourceDirty)}
+    $expectedSourceCommit='0e84db5876218be53a23085c787ee3140688546b';$null=(& $gitExe -C $script:Repo merge-base --is-ancestor $expectedSourceCommit HEAD 2>&1);if($LASTEXITCODE -ne 0 -or $sourceBranch -ne 'codex/v28r1-local-report-66-fix' -or $sourceDirty){throw ('Source tree is not clean on the exact V28R1 branch/commit: '+$sourceHead+' '+$sourceBranch+' '+$sourceDirty)}
     SaveJson (Join-Path $script:RunRoot 'Source\BASELINE_IDENTITY.json') ([pscustomobject]@{projectBaseline=$script:Source;branchSource=$script:BranchSource;branch=$sourceBranch;head=$sourceHead;trackedSourceClean=($sourceDirty -eq '')})
     $sdk=(& $script:DotNet --list-sdks 2>&1|Out-String).Trim();if($LASTEXITCODE -ne 0 -or $sdk -notmatch '10\.0\.'){throw ('Required .NET 10 SDK missing: '+$sdk)}
     $assetInventory=Assets $script:Install
@@ -328,7 +328,7 @@ try {
     RunNative $script:DotNet @('build',$project,'--configuration','Release','--runtime','win-x64','/nr:false','-p:UseSharedCompilation=false') $sourceStage 'V28R1 Release build' (Join-Path $script:RunRoot 'BuildLogs\BUILD.stdout.txt') (Join-Path $script:RunRoot 'BuildLogs\BUILD.stderr.txt') 1800 @(0)
     RunNative $script:DotNet @('publish',$project,'--configuration','Release','--runtime','win-x64','--self-contained','true','--output',$publish,'/nr:false','-p:UseSharedCompilation=false') $sourceStage 'V28R1 self-contained win-x64 publish' (Join-Path $script:RunRoot 'BuildLogs\PUBLISH.stdout.txt') (Join-Path $script:RunRoot 'BuildLogs\PUBLISH.stderr.txt') 1800 @(0)
     $pubExe=Join-Path $publish 'Archestro.MeetingVault.exe';$pubHash=HashFile $pubExe
-    SaveJson (Join-Path $script:RunRoot 'PROVENANCE.json') ([pscustomobject]@{repo='BigD11-11/archestro-v26-rtl-geometry-word-bidi-closure';branch='codex/v28r1-local-report-66-fix';head='45dac489a87ca1eab908eb3e7da8a70d87306201';implementation='45dac489a87ca1eab908eb3e7da8a70d87306201';sourceZipSha256=$script:ExpectedZip;priorPublishedExeSha256='V25_BASELINE';localPublishedExeSha256=$pubHash})
+    SaveJson (Join-Path $script:RunRoot 'PROVENANCE.json') ([pscustomobject]@{repo='BigD11-11/archestro-v26-rtl-geometry-word-bidi-closure';branch='codex/v28r1-local-report-66-fix';head='0e84db5876218be53a23085c787ee3140688546b';implementation='0e84db5876218be53a23085c787ee3140688546b';sourceZipSha256=$script:ExpectedZip;priorPublishedExeSha256='V25_BASELINE';localPublishedExeSha256=$pubHash})
     EndStage 'PASS' ('Build and publish exit 0; EXE SHA-256 '+$pubHash)
 
     BeginStage '5/8 Staged runtime QA' 'Run core, RTL, matrix, fake cloud, local AI, Speaker and DOCX proof.'
@@ -443,5 +443,6 @@ finally {
 }
 Say 'STAGE' ('FINAL '+$script:Status+' | rollback='+$script:Rollback) $(if($script:Status -eq 'V28R1_INSTALLED_LOCAL_OWNER_SMOKE_IN_PROGRESS'){[ConsoleColor]::Green}else{[ConsoleColor]::Yellow})
 if($script:Status -eq 'V28R1_INSTALLED_LOCAL_OWNER_SMOKE_IN_PROGRESS'){exit 0}else{exit 2}
+
 
 
