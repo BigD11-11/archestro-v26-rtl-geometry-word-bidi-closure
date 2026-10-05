@@ -1,0 +1,83 @@
+{
+  "result": "V28R1_OWNER_RUN_ROLLED_BACK_WITH_EXACT_BLOCKER",
+  "branch": "codex/v28r1-local-report-66-fix",
+  "head": "fbede6ad2448528bbbd647f2ac69f11eff75869c",
+  "ownerCandidate": {
+    "build": "PASS",
+    "publish": "PASS",
+    "stagedQa": "7/7 PASS",
+    "installedQa": "7/7 PASS",
+    "exeSha256": "2E299E74369A329F0F3FEBA41F0993873F220355C8AE682F028F7C17BB083631"
+  },
+  "localArabic": {
+    "sameMeeting": "62 seconds; 31 evidence lines; one chunk",
+    "extractSeconds": 110.3,
+    "synthesisSeconds": 89.6,
+    "totalSeconds": 200.0,
+    "reportPersisted": "PASS",
+    "restartCache": "PASS"
+  },
+  "wordArabic": {
+    "openedInMicrosoftWordVersion": "16.0",
+    "paragraphs": 53,
+    "pages": 2,
+    "docxSha256": "6E74E68AD6825B52B5EF79611863B9E0909B7381BE809B6D4F739915EDC7AE00",
+    "settingsCompatibilityMode": 15,
+    "themeFontLangBidi": "ar-SA",
+    "paragraphBidiCount": 49,
+    "runRtlCount": 43,
+    "sectionBidi": 1,
+    "tableBidi": 2,
+    "visualScreenshotInPackage": false
+  },
+  "englishLocal": {
+    "status": "BLOCKED",
+    "reason": "Local extraction and single repair both returned malformed JSON; no DTO, merge, evidence validation or save",
+    "primaryResponseCharacters": 714,
+    "repairResponseCharacters": 714,
+    "completedDtos": 0,
+    "elapsedSeconds": 144.384,
+    "existingArabicReportUnchanged": true
+  },
+  "localAsk": {
+    "vault": "Answer grounded in local meeting evidence",
+    "meeting": "Request completed, but broad query received no-match fallback; semantic answer not proven"
+  },
+  "deepseek": {
+    "request": "One-time secure in-app key request sent",
+    "userResponseReceived": false,
+    "keySaved": false,
+    "plaintextTokenFound": false,
+    "connectionAskReportTiming": "NOT_RUN"
+  },
+  "rollback": {
+    "v25Restored": true,
+    "v25ExeSha256": "76985810D7C9E8324BF0FCDC228277834CCEED7FC5674CEF3CB3042D9978EE81",
+    "candidatePreservedAt": "C:\\Users\\arefa\\AppData\\Local\\Programs\\Archestro\\Meeting Vault.V28_FAILED_20261006",
+    "v25Restart": "PASS",
+    "databaseIntegrity": "ok",
+    "foreignKeyErrors": 0,
+    "logicalRows": 44,
+    "databaseSemanticMatch": true,
+    "settingsSha256AfterV25Restart": "7D41B883A036DE75664569BACC13D45BAC3DFEC76F506525BA2170E316C9561C",
+    "cloudKeyFieldsPresent": false,
+    "v25DefaultModel": "Qwen3-4B-Q4_K_M",
+    "v25UsesLocalOnly": true
+  },
+  "integrity": {
+    "preinstallVsOwnerQa": "PASS; 992 files; no added/removed/changed protected paths",
+    "postRollbackDbSemanticMatch": "PASS",
+    "settingsFieldsRemovedByV25": [
+      "IntelligenceProvider",
+      "CloudIntelligenceModel",
+      "EncryptedIntelligenceApiKey",
+      "CloudIntelligenceEnabled",
+      "CloudIntelligenceConsentAccepted",
+      "CloudLocalFallbackEnabled"
+    ]
+  },
+  "tastePass": "HOLD",
+  "aims": "NO TOUCH",
+  "sourceProofZip": "V28R1_SOURCE_AND_PROOF.zip",
+  "sourceProofSha256": "7042C460A93A1EF1C755E87116ED9798D9CA6B2320FD4B1916C54824616AD52C"
+}
