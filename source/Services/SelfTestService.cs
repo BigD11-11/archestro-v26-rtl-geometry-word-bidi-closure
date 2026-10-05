@@ -66,6 +66,11 @@ public static class SelfTestService
                 var topicsHeading = Bounds(window.TopicsHeading, window);
                 var summaryCard = Bounds(window.ExecutiveSummaryCard, window);
                 var summaryText = Bounds(window.SummaryText, window);
+                var reportHeadings = new[] { window.ExecutiveSummaryHeading, window.TopicsHeading, window.KeyPointsHeading,
+                    window.DecisionsHeading, window.ActionsHeading, window.CommitmentsHeading, window.RisksHeading,
+                    window.ImportantMomentsHeading, window.ParticipantsHeading, window.FollowUpHeading };
+                var itemText = FindTextBlock(window.ReportContentRoot, "• " + (arabic ? "مراجعة مسار العمل" : "Review the workflow"));
+                var evidenceTimestamp = FindTextBlock(window.ReportContentRoot, "▶ 00:00:52");
 
                 Check(area.Width > 1300, $"{Language(arabic)} content viewport too narrow: {area.Width:0.0}px.");
                 Check(arabic
@@ -119,6 +124,15 @@ public static class SelfTestService
                 Check(window.TopicsHeading.FlowDirection == (arabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight) &&
                       window.TopicsHeading.TextAlignment == (arabic ? TextAlignment.Right : TextAlignment.Left),
                     $"{Language(arabic)} card heading text direction/alignment is incorrect.");
+                Check(reportHeadings.All(block => block.FlowDirection == (arabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight) &&
+                                                   block.TextAlignment == (arabic ? TextAlignment.Right : TextAlignment.Left)),
+                    $"{Language(arabic)} one or more report headings do not follow the selected language direction.");
+                Check(itemText is not null && itemText.FlowDirection == (arabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight) &&
+                      itemText.TextAlignment == (arabic ? TextAlignment.Right : TextAlignment.Left),
+                    $"{Language(arabic)} report item text does not follow the selected language direction.");
+                Check(evidenceTimestamp is not null && evidenceTimestamp.FlowDirection == FlowDirection.LeftToRight &&
+                      evidenceTimestamp.TextAlignment == TextAlignment.Left,
+                    $"{Language(arabic)} evidence timestamp is not isolated as readable LTR content.");
 
                 string? screenshotPath = null;
                 var screenshotRoot = Environment.GetEnvironmentVariable("ARCHESTRO_RTL_QA_SCREENSHOT_DIR");
@@ -149,6 +163,7 @@ public static class SelfTestService
                     keyPointsCard = Shape(keyPoints),
                     executiveSummaryCard = Shape(summaryCard),
                     summaryText = Shape(summaryText),
+                    alignmentProof = new { reportHeadingCount = reportHeadings.Length, headingsAligned = reportHeadings.All(block => block.TextAlignment == (arabic ? TextAlignment.Right : TextAlignment.Left)), reportItemAligned = itemText?.TextAlignment == (arabic ? TextAlignment.Right : TextAlignment.Left), evidenceTimestampFlow = evidenceTimestamp?.FlowDirection.ToString(), evidenceTimestampText = evidenceTimestamp?.Text },
                     flowDirection = window.FlowDirection.ToString(),
                     reportShellFlowDirection = window.ReportContentArea.FlowDirection.ToString(),
                     screenshot = screenshotPath is null ? null : Path.GetFileName(screenshotPath),
@@ -163,7 +178,7 @@ public static class SelfTestService
 
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
         File.WriteAllText(outputPath, System.Text.Json.JsonSerializer.Serialize(
-            new { status = _layoutFailures.Count == 0 ? "PASS" : "FAIL", coordinateSystem = "DIPs relative to the actual production IntelligenceWindow, origin top-left", results, failures = _layoutFailures.ToArray() },
+            new { status = _layoutFailures.Count == 0 ? "PASS" : "FAIL", runtimeBuild = AppBuildIdentity.GetRuntimeProof(), coordinateSystem = "DIPs relative to the actual production IntelligenceWindow, origin top-left", results, failures = _layoutFailures.ToArray() },
             new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
         if (_layoutFailures.Count > 0)
             throw new InvalidOperationException("Actual WPF layout geometry assertions failed: " + string.Join(" | ", _layoutFailures));
@@ -186,6 +201,17 @@ public static class SelfTestService
         if (element.ActualWidth <= 0 || element.ActualHeight <= 0)
             throw new InvalidOperationException($"{element.Name} has no arranged size ({element.ActualWidth:0.0}x{element.ActualHeight:0.0}).");
         return element.TransformToAncestor(ancestor).TransformBounds(new Rect(0, 0, element.ActualWidth, element.ActualHeight));
+    }
+
+    private static TextBlock? FindTextBlock(DependencyObject root, string text)
+    {
+        if (root is TextBlock block && block.Text == text) return block;
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var found = FindTextBlock(VisualTreeHelper.GetChild(root, i), text);
+            if (found is not null) return found;
+        }
+        return null;
     }
 
     public static void RunOffline()
@@ -236,11 +262,180 @@ public static class SelfTestService
             throw new InvalidOperationException("Dynamic category persistence self-test failed.");
 
         RunV25FunctionalFixtures(testRoot, folder);
+        VerifyLibraryAudioImportCommandAsync().GetAwaiter().GetResult();
+        VerifyShortMeetingEvidenceFixture(testRoot);
+        VerifyCachedReportFixtures(testRoot);
+        VerifySecretProtectionFixture();
+
+        var functionalOutput = Environment.GetEnvironmentVariable("ARCHESTRO_V28_FUNCTIONAL_QA_OUTPUT");
+        if (!string.IsNullOrWhiteSpace(functionalOutput))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(functionalOutput))!);
+            File.WriteAllText(functionalOutput, System.Text.Json.JsonSerializer.Serialize(new
+            {
+                status = "PASS", importRouting = "PASS", unsupportedImportNoMutation = "PASS",
+                sparseEightSecondReport = "INSUFFICIENT_EVIDENCE", oldArabicJsonCurrentRtl = "PASS",
+                oldEnglishJsonCurrentLtr = "PASS", incompatibleCacheNeedsRefreshAndCannotExport = "PASS",
+                currentExporterReexportsOldValidJson = "PASS", dpapiCurrentUserRoundTrip = "PASS"
+            }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        }
 
         File.WriteAllText(Path.Combine(AppPaths.Logs, "self-test-pass.txt"),
             $"PASS {DateTimeOffset.Now:o}{Environment.NewLine}SQLite FTS5 PASS{Environment.NewLine}Greeting PASS{Environment.NewLine}Suggestion PASS{Environment.NewLine}Dynamic Categories PASS{Environment.NewLine}Archestro Build 2 source foundation PASS");
 
         try { Directory.Delete(testRoot, true); } catch { }
+    }
+
+    private static async Task VerifyLibraryAudioImportCommandAsync()
+    {
+        var valid = Path.Combine(Path.GetTempPath(), "v28-import-fixture.wav");
+        var invalid = Path.Combine(Path.GetTempPath(), "v28-import-fixture.exe");
+        var imported = new List<string>();
+        var pickerCalls = 0;
+        Task<IEnumerable<string>?> Picker()
+        {
+            pickerCalls++;
+            return Task.FromResult<IEnumerable<string>?>(new[] { valid });
+        }
+        Task Import(IReadOnlyList<string> paths) { imported.AddRange(paths); return Task.CompletedTask; }
+        bool Exists(string path) => path is var value && (value == valid || value == invalid);
+
+        // The plus button, primary button and empty card surface each reach this one command.
+        foreach (var _ in new[] { "plus", "primary", "card-surface" })
+            RequireFixture(await LibraryAudioImportCommand.ExecuteAsync(null, Picker, Import, Exists), "A library import click did not invoke the shared import route.");
+        // Drag-enter/drop uses the exact same supported-file filtering and import delegate.
+        RequireFixture(await LibraryAudioImportCommand.ExecuteAsync(new[] { valid }, Picker, Import, Exists), "Supported audio drop did not reach the shared import route.");
+        var beforeInvalid = imported.Count;
+        var invalidStarted = await LibraryAudioImportCommand.ExecuteAsync(new[] { invalid }, Picker, Import, Exists);
+        RequireFixture(!invalidStarted && imported.Count == beforeInvalid, "Unsupported import mutated the library.");
+        RequireFixture(pickerCalls == 3 && imported.Count == 4 && imported.All(path => path == valid), "Import click/drop dispatch count was not deterministic.");
+
+        var output = Environment.GetEnvironmentVariable("ARCHESTRO_V28_A_IMPORT_QA_OUTPUT");
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
+            File.WriteAllText(output, System.Text.Json.JsonSerializer.Serialize(new
+            {
+                status = "PASS", sharedCommand = true, pickerInvocations = pickerCalls,
+                plusButton = "shared picker + import delegate", primaryButton = "shared picker + import delegate",
+                cardSurface = "shared picker + import delegate", supportedDrop = "shared import delegate",
+                unsupportedExtension = "rejected", importCountAfterInvalid = beforeInvalid
+            }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        }
+    }
+
+    private static void VerifyShortMeetingEvidenceFixture(string testRoot)
+    {
+        var shortFolder = Path.Combine(testRoot, "EightSecondMeeting");
+        Directory.CreateDirectory(shortFolder);
+        var srt = Path.Combine(shortFolder, "short.srt");
+        File.WriteAllText(srt, "1\n00:00:00,000 --> 00:00:04,000\nنعم، حسنًا.\n\n2\n00:00:04,000 --> 00:00:08,000\nOkay, yes.\n");
+        var eightSeconds = MeetingIntelligenceService.AssessEvidenceSufficiency(new[]
+        {
+            new EvidenceRef { Id = "E1", StartSeconds = 0, EndSeconds = 4, Text = "نعم، حسنًا." },
+            new EvidenceRef { Id = "E2", StartSeconds = 4, EndSeconds = 8, Text = "Okay, yes." }
+        }, 8);
+        RequireFixture(!eightSeconds.Sufficient && eightSeconds.Reason == "short-transcript",
+            "Sparse eight-second meeting was not classified as insufficient evidence.");
+        var meeting = new MeetingRecord { Id = "v28-short-fixture", FolderPath = shortFolder, SrtPath = srt, TranscriptPath = srt, DurationSeconds = 8 };
+        var service = new MeetingIntelligenceService(new AppSettings(), new MeetingRepository(Path.Combine(testRoot, "short.db")));
+        foreach (var (language, phrase) in new[] { ("ar", "الأدلة"), ("en", "too short") })
+        {
+            InsufficientMeetingEvidenceException? result = null;
+            try { service.AnalyzeMeetingAsync(meeting, "General", CancellationToken.None, reportLanguage: language).GetAwaiter().GetResult(); }
+            catch (InsufficientMeetingEvidenceException exception) { result = exception; }
+            RequireFixture(result is not null && result.Message.Contains(phrase, StringComparison.OrdinalIgnoreCase),
+                $"Sparse eight-second {language} transcript did not receive a localized Insufficient Evidence state.");
+            RequireFixture(!File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(meeting)),
+                "Sparse meeting created a cached report or fabricated report sections.");
+        }
+    }
+
+    private static void VerifyCachedReportFixtures(string testRoot)
+    {
+        var folder = Path.Combine(testRoot, "CachedReportFixtures");
+        Directory.CreateDirectory(folder);
+        var transcript = Path.Combine(folder, "transcript.txt");
+        File.WriteAllText(transcript, "E1 00:00:52 Speaker: تمت مراجعة API ضمن الخطة.");
+        var meeting = new MeetingRecord
+        {
+            Id = "v28-cached-report", FolderPath = folder, TranscriptPath = transcript,
+            Title = "Cached report fixture", HasExplicitTitle = true,
+            StartLocal = new DateTimeOffset(2026, 10, 5, 9, 0, 0, TimeSpan.FromHours(3)), DurationSeconds = 120
+        };
+        var service = new MeetingIntelligenceService(new AppSettings(), new MeetingRepository(Path.Combine(testRoot, "cached.db")));
+        var reportPath = MeetingIntelligenceService.GetCanonicalReportJsonPath(meeting);
+        Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
+        var historicalDocx = Path.Combine(MeetingIntelligenceService.GetReportsFolder(meeting), "historical-owner-docx.docx");
+        File.WriteAllText(historicalDocx, "V26 historical DOCX fixture bytes stay frozen.");
+        var historicalHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(historicalDocx)));
+
+        // Pre-V28 JSON had no report-language/source-hash metadata; infer same-language content and render immediately.
+        var oldArabicJson = """{"MeetingId":"v28-cached-report","ExecutiveSummary":"تمت مراجعة API ضمن الخطة.","Topics":[{"Text":"تمت مراجعة الخطة.","Evidence":["E1"]}],"EvidenceIndex":[{"Id":"E1","Text":"تمت مراجعة API ضمن الخطة.","StartSeconds":52}]}""";
+        File.WriteAllText(reportPath, oldArabicJson);
+        AppearanceService.Configure("Dark", "Arabic");
+        var oldArabic = service.LoadReport(meeting) ?? throw new InvalidOperationException("Old Arabic report JSON did not load.");
+        RequireFixture(oldArabic.ReportLanguage == "ar" && !oldArabic.NeedsRefresh && MeetingIntelligenceService.IsCachedReportCompatibleForExport(oldArabic, "ar"),
+            "Same-language legacy Arabic JSON was unnecessarily marked for refresh.");
+        var arabicWindow = new IntelligenceWindow(meeting, service, layoutQa: true);
+        typeof(IntelligenceWindow).GetMethod("LoadExisting", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(arabicWindow, null);
+        RequireFixture(arabicWindow.SummaryText.FlowDirection == FlowDirection.RightToLeft && arabicWindow.ReportStateText.Text == "التقرير جاهز" && arabicWindow.ExportWordButton.IsEnabled,
+            "Legacy Arabic JSON did not immediately use current RTL UI presentation.");
+        var exported = MeetingReportWordExporter.Export(meeting, oldArabic);
+        VerifyWordDocument(exported, arabic: true, expectedTerms: new[] { "API" });
+        var historicalHashAfter = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(historicalDocx)));
+        RequireFixture(historicalHash == historicalHashAfter, "Current Word export rewrote historical DOCX bytes in place.");
+        arabicWindow.Close();
+
+        var oldEnglishJson = """{"MeetingId":"v28-cached-report","ReportLanguage":"en","ExecutiveSummary":"The API review remains in scope.","Topics":[{"Text":"Review the plan.","Evidence":["E1"]}],"EvidenceIndex":[{"Id":"E1","Text":"Review the plan.","StartSeconds":52}]}""";
+        File.WriteAllText(reportPath, oldEnglishJson);
+        AppearanceService.Configure("Dark", "English");
+        var oldEnglish = service.LoadReport(meeting) ?? throw new InvalidOperationException("Old English report JSON did not load.");
+        var englishWindow = new IntelligenceWindow(meeting, service, layoutQa: true);
+        typeof(IntelligenceWindow).GetMethod("LoadExisting", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(englishWindow, null);
+        RequireFixture(!oldEnglish.NeedsRefresh && englishWindow.SummaryText.FlowDirection == FlowDirection.LeftToRight && englishWindow.ReportStateText.Text == "Report ready",
+            $"Same-language legacy English JSON did not immediately use current LTR UI presentation (needsRefresh={oldEnglish.NeedsRefresh}; sourceHash='{oldEnglish.SourceTranscriptSha256}'; languageCompatible={MeetingIntelligenceService.IsReportLanguageCompatible(oldEnglish, "en")}; flow={englishWindow.SummaryText.FlowDirection}; state={englishWindow.ReportStateText.Text}; export={englishWindow.ExportWordButton.IsEnabled}; lang={oldEnglish.ReportLanguage}).");
+        englishWindow.Close();
+
+        File.WriteAllText(reportPath, """{"MeetingId":"v28-cached-report","ReportLanguage":"ar","ExecutiveSummary":"The team agreed to review the plan.","Topics":[],"EvidenceIndex":[]}""");
+        AppearanceService.Configure("Dark", "Arabic");
+        var incompatible = service.LoadReport(meeting) ?? throw new InvalidOperationException("Incompatible cache fixture did not load.");
+        var incompatibleWindow = new IntelligenceWindow(meeting, service, layoutQa: true);
+        typeof(IntelligenceWindow).GetMethod("LoadExisting", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(incompatibleWindow, null);
+        RequireFixture(incompatible.NeedsRefresh && incompatibleWindow.ReportStateText.Text != "Report ready" && !incompatibleWindow.ExportWordButton.IsEnabled,
+            "Language-incompatible cached report was shown as Ready or remained exportable.");
+        incompatibleWindow.Close();
+
+        var transcriptHashBeforeChange = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(transcript)));
+        File.WriteAllText(reportPath, oldEnglishJson.Replace("\"ReportLanguage\":\"en\"", $"\"ReportLanguage\":\"en\",\"SourceTranscriptSha256\":\"{transcriptHashBeforeChange}\"", StringComparison.Ordinal));
+        meeting.TranscriptPath = transcript;
+        File.AppendAllText(transcript, " Transcript changed.");
+        var transcriptStale = service.LoadReport(meeting) ?? throw new InvalidOperationException("Stale cache fixture did not load.");
+        RequireFixture(transcriptStale.NeedsRefresh && !MeetingIntelligenceService.IsCachedReportCompatibleForExport(transcriptStale, "en"),
+            "Transcript-incompatible cached report remained exportable.");
+
+        var cachedOutput = Environment.GetEnvironmentVariable("ARCHESTRO_V28_CACHED_REPORT_QA_OUTPUT");
+        if (!string.IsNullOrWhiteSpace(cachedOutput))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(cachedOutput))!);
+            File.WriteAllText(cachedOutput, System.Text.Json.JsonSerializer.Serialize(new
+            {
+                status = "PASS", oldArabicJsonCurrentRtl = true, oldEnglishJsonCurrentLtr = true,
+                incompatibleReportNeedsRefreshAndCannotExport = true, transcriptHashMismatchCannotExport = true,
+                oldJsonReexportedWithCurrentWordExporter = true, historicalDocxBytesUnchanged = true,
+                reexportedDocxSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(exported)))
+            }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        }
+    }
+
+    private static void VerifySecretProtectionFixture()
+    {
+        const string marker = "v28-secret-never-plaintext-fixture-93f4";
+        var protectedValue = CloudSecretProtector.Protect(marker);
+        RequireFixture(!protectedValue.Contains(marker, StringComparison.Ordinal) && CloudSecretProtector.Unprotect(protectedValue) == marker,
+            "DPAPI current-user protection round trip failed or retained plaintext.");
+        var serializedSettings = System.Text.Json.JsonSerializer.Serialize(new AppSettings { EncryptedIntelligenceApiKey = protectedValue });
+        RequireFixture(!serializedSettings.Contains(marker, StringComparison.Ordinal), "Protected API secret appeared plaintext in settings serialization.");
     }
 
     private static void RunV25FunctionalFixtures(string testRoot, string meetingFolder)

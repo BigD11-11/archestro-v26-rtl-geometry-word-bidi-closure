@@ -21,6 +21,10 @@ public static class MeetingReportWordExporter
         Directory.CreateDirectory(reportsFolder);
         var arabic = string.Equals(report.ReportLanguage, "ar", StringComparison.OrdinalIgnoreCase);
         var expectedLanguage = arabic ? "ar" : "en";
+        if (report.NeedsRefresh)
+            throw new InvalidOperationException(arabic
+                ? "هذا التقرير المحفوظ يحتاج إلى تحديث قبل تصديره."
+                : "This saved report needs a refresh before it can be exported.");
         if (!MeetingIntelligenceService.IsReportLanguageCompatible(report, expectedLanguage))
             throw new InvalidOperationException(arabic
                 ? "هذا التقرير لا يطابق اللغة العربية الحالية. أعد إعداد التقرير قبل التصدير."

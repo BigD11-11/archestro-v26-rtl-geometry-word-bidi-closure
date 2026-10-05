@@ -30,6 +30,26 @@ public partial class App : Application
             Shutdown(10);
         };
 
+        if (e.Args.Contains("--cloud-provider-qa", StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var output = Environment.GetEnvironmentVariable("ARCHESTRO_V28_PROVIDER_QA_OUTPUT");
+                Task.Run(() => CloudProviderQaService.RunAsync(output)).GetAwaiter().GetResult();
+                Environment.ExitCode = 0;
+            }
+            catch (Exception ex)
+            {
+                var errorPath = Environment.GetEnvironmentVariable("ARCHESTRO_V28_PROVIDER_QA_ERROR");
+                if (string.IsNullOrWhiteSpace(errorPath)) errorPath = Path.Combine(AppPaths.Logs, "v28-provider-qa-error.txt");
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(errorPath))!);
+                File.WriteAllText(errorPath, ex.ToString());
+                Environment.ExitCode = 30;
+            }
+            Shutdown(Environment.ExitCode);
+            return;
+        }
+
         if (e.Args.Contains("--v13.8.9-qa", StringComparer.OrdinalIgnoreCase))
         {
             try

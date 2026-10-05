@@ -166,7 +166,7 @@ public partial class IntelligenceWindow : Window
         StatusText.Text = _report.NeedsRefresh
             ? T("Meeting report exists • transcript changed since generation", "يوجد تقرير • تم تعديل نص الاجتماع بعد إنشائه")
             : T("Meeting report ready • processed locally", "تقرير الاجتماع جاهز • تمت المعالجة محليًا");
-        ExportWordButton.IsEnabled = !_busy;
+        ExportWordButton.IsEnabled = !_busy && !_report.NeedsRefresh;
         OpenReportFolderButton.IsEnabled = true;
         UpdateGenerateButtonCopy();
     }
@@ -203,6 +203,7 @@ public partial class IntelligenceWindow : Window
     private async Task GenerateBriefAsync(string mode, bool automatic)
     {
         if (_busy) return;
+        var generationCompleted = false;
 
         try
         {
@@ -234,12 +235,43 @@ public partial class IntelligenceWindow : Window
                 CancellationToken.None,
                 progress,
                 AppearanceService.IsArabic ? "ar" : "en");
+            generationCompleted = true;
             LoadExisting();
             IntelTabs.SelectedIndex = 0;
             StatusText.Text = T("Meeting report ready • processed locally", "تقرير الاجتماع جاهز • تمت المعالجة محليًا");
         }
         catch (Exception ex)
         {
+            if (ex is InsufficientMeetingEvidenceException)
+            {
+                StatusText.Text = ex.Message;
+                if (_report is null)
+                {
+                    ReportStateText.Text = T("Insufficient evidence", "أدلة غير كافية");
+                    SummaryText.Text = ex.Message;
+                    ApplyReportTextDirection(SummaryText);
+                    ClearLists();
+                    ExportWordButton.IsEnabled = false;
+                }
+                if (!automatic)
+                    MessageBox.Show(ex.Message, T("Insufficient evidence", "أدلة غير كافية"), MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (ex is ReportLanguageValidationException)
+            {
+                StatusText.Text = ex.Message;
+                if (_report is null)
+                {
+                    ReportStateText.Text = T("Needs revision", "يحتاج مراجعة");
+                    SummaryText.Text = ex.Message;
+                    ApplyReportTextDirection(SummaryText);
+                    ClearLists();
+                    ExportWordButton.IsEnabled = false;
+                }
+                if (!automatic)
+                    MessageBox.Show(ex.Message, T("Report language check", "فحص لغة التقرير"), MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
             if (!automatic)
             {
                 MessageBox.Show(
@@ -259,7 +291,7 @@ public partial class IntelligenceWindow : Window
             StopReportWritingMotion();
             UpdateReportElapsed();
             SetBusy(false, "");
-            if (_report is not null)
+            if (generationCompleted)
             {
                 ReportProgressBar.Value = 100;
                 ReportProgressText.Text = T("Report ready", "التقرير جاهز");
@@ -329,10 +361,10 @@ public partial class IntelligenceWindow : Window
             return;
         }
         var expectedReportLanguage = AppearanceService.IsArabic ? "ar" : "en";
-        if (!MeetingIntelligenceService.IsReportLanguageCompatible(_report, expectedReportLanguage))
+        if (!MeetingIntelligenceService.IsCachedReportCompatibleForExport(_report, expectedReportLanguage))
         {
             MessageBox.Show(
-                T("Regenerate this report in the current application language before exporting.", "أعد إعداد التقرير باللغة الحالية قبل التصدير."),
+                T("This saved report needs a refresh or does not match the current language. Refresh it before exporting.", "يحتاج هذا التقرير المحفوظ إلى تحديث أو لا يطابق اللغة الحالية. حدّثه قبل التصدير."),
                 T("Meeting Report", "تقرير الاجتماع"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -438,7 +470,7 @@ public partial class IntelligenceWindow : Window
         ModeCombo.IsEnabled = !busy;
         AskMeetingButton.IsEnabled = !busy;
         AskVaultButton.IsEnabled = !busy;
-        ExportWordButton.IsEnabled = !busy && _report is not null;
+        ExportWordButton.IsEnabled = !busy && _report is not null && !_report.NeedsRefresh;
         OpenReportFolderButton.IsEnabled = !busy && (_report is not null || Directory.Exists(MeetingIntelligenceService.GetReportsFolder(_meeting)));
 
         if (busy)
@@ -600,7 +632,14 @@ public partial class IntelligenceWindow : Window
                         FontWeight = FontWeights.SemiBold
                     });
                 }
-                label.Children.Add(new TextBlock { Text = "▶ " + evidence.TimeText, Foreground = (Brush)FindResource("PrimaryTextBrush") });
+                label.Children.Add(new TextBlock
+                {
+                    Text = "▶ " + evidence.TimeText,
+                    Foreground = (Brush)FindResource("PrimaryTextBrush"),
+                    FlowDirection = FlowDirection.LeftToRight,
+                    TextAlignment = TextAlignment.Left,
+                    Language = System.Windows.Markup.XmlLanguage.GetLanguage("en-US")
+                });
                 var button = new Button
                 {
                     Content = label,
@@ -872,8 +911,10 @@ public partial class IntelligenceWindow : Window
                 ? "تم الاتفاق على مراجعة واجهة التقرير وتوثيق النتائج."
                 : "The team agreed to review the report interface and document the results.",
             Topics = new() { new IntelligenceItem { Text = arabic ? "مراجعة مسار العمل" : "Review the workflow" } },
-            KeyPoints = new() { new IntelligenceItem { Text = arabic ? "تأكيد الموعد النهائي" : "Confirm the deadline" } }
+            KeyPoints = new() { new IntelligenceItem { Text = arabic ? "تأكيد الموعد النهائي" : "Confirm the deadline" } },
+            EvidenceIndex = new() { new EvidenceRef { Id = "V28-E1", StartSeconds = 52, Speaker = "Speaker 1" } }
         };
+        _report.Topics[0].Evidence.Add("V28-E1");
         SummaryText.Text = _report.ExecutiveSummary;
         ApplyReportTextDirection(SummaryText);
         BindItems(TopicsList, _report.Topics, _report, showOwner: false);
