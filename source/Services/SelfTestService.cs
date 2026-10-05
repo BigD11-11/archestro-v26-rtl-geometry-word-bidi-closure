@@ -403,7 +403,7 @@ public static class SelfTestService
         var normalMeeting = MakeMeeting("resilience-normal");
         var normal = Service(normalMeeting, FastFixture);
         var progress = new InlineReportProgress();
-        var report = await normal.AnalyzeMeetingAsync(normalMeeting, "General", progress: progress, reportLanguage: "ar");
+        var report = await normal.AnalyzeMeetingAsync(normalMeeting, "General", progress: progress, reportLanguage: "ar").ConfigureAwait(false);
         var normalPath = MeetingIntelligenceService.GetCanonicalReportJsonPath(normalMeeting);
         RequireFixture(File.Exists(normalPath) && normal.LoadReport(normalMeeting) is not null && report.ReportLanguage == "ar",
             "Normal Local report did not save and reload as Arabic.");
@@ -422,7 +422,7 @@ public static class SelfTestService
             TimeSpan.FromMilliseconds(60), TimeSpan.FromSeconds(1));
         var requestClock = Stopwatch.StartNew();
         var extractionTimedOut = false;
-        try { await timeoutService.AnalyzeMeetingAsync(timeoutMeeting, "General", reportLanguage: "ar"); }
+        try { await timeoutService.AnalyzeMeetingAsync(timeoutMeeting, "General", reportLanguage: "ar").ConfigureAwait(false); }
         catch (MeetingReportTimeoutException timeout) { extractionTimedOut = timeout.Stage == "chunk"; }
         WriteResilienceCheckpoint(root, "extract-timeout-returned");
         RequireFixture(extractionTimedOut && requestClock.Elapsed < TimeSpan.FromSeconds(2), "Local extraction timeout did not terminate within the bounded test window with its stage identity.");
@@ -443,7 +443,7 @@ public static class SelfTestService
             TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(60));
         var overallClock = Stopwatch.StartNew();
         var overallTimedOut = false;
-        try { await overallService.AnalyzeMeetingAsync(overallMeeting, "General", reportLanguage: "ar"); }
+        try { await overallService.AnalyzeMeetingAsync(overallMeeting, "General", reportLanguage: "ar").ConfigureAwait(false); }
         catch (MeetingReportTimeoutException timeout) { overallTimedOut = timeout.Stage == "overall"; }
         RequireFixture(overallTimedOut && overallClock.Elapsed < TimeSpan.FromSeconds(2) &&
                        !File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(overallMeeting)),
@@ -456,7 +456,7 @@ public static class SelfTestService
                 ? Task.Delay(Timeout.Infinite, token).ContinueWith<string>(_ => "", token)
                 : Task.FromResult(ExtractionJson()), TimeSpan.FromMilliseconds(60), TimeSpan.FromSeconds(2));
         var fallbackProgress = new InlineReportProgress();
-        var fallback = await fallbackService.AnalyzeMeetingAsync(fallbackMeeting, "General", progress: fallbackProgress, reportLanguage: "ar");
+        var fallback = await fallbackService.AnalyzeMeetingAsync(fallbackMeeting, "General", progress: fallbackProgress, reportLanguage: "ar").ConfigureAwait(false);
         RequireFixture(File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(fallbackMeeting)) &&
                        fallback.ExecutiveSummary.Contains("خطة التشغيل", StringComparison.Ordinal) && fallbackProgress.Values.Any(x => x.Percent == 82),
             "Synthesis timeout did not finish from validated evidence using the distinct fallback stage.");
@@ -475,7 +475,7 @@ public static class SelfTestService
                 return Task.FromException<string>(new InvalidOperationException("synthetic repair failure"));
             return Task.FromResult(ExtractionJson());
         });
-        var malformed = await malformedService.AnalyzeMeetingAsync(malformedMeeting, "General", reportLanguage: "ar");
+        var malformed = await malformedService.AnalyzeMeetingAsync(malformedMeeting, "General", reportLanguage: "ar").ConfigureAwait(false);
         RequireFixture(synthesisCalls == 1 && !string.IsNullOrWhiteSpace(malformed.ExecutiveSummary) &&
                        File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(malformedMeeting)),
             "Malformed synthesis plus one failed repair did not use the bounded deterministic fallback.");
@@ -491,7 +491,7 @@ public static class SelfTestService
             return Task.FromResult(ExtractionJson());
         }, TimeSpan.FromMilliseconds(60), TimeSpan.FromSeconds(2));
         var languageBlocked = false;
-        try { await languageService.AnalyzeMeetingAsync(languageMeeting, "General", reportLanguage: "ar"); }
+        try { await languageService.AnalyzeMeetingAsync(languageMeeting, "General", reportLanguage: "ar").ConfigureAwait(false); }
         catch (ReportLanguageValidationException) { languageBlocked = true; }
         RequireFixture(languageBlocked && !File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(languageMeeting)),
             "Language-normalization timeout saved an incompatible Arabic report as Ready.");
@@ -512,10 +512,10 @@ public static class SelfTestService
         using (var cts = new CancellationTokenSource())
         {
             var running = cancelService.AnalyzeMeetingAsync(cancelMeeting, "General", cts.Token, reportLanguage: "ar");
-            await Task.Delay(60);
+            await Task.Delay(60).ConfigureAwait(false);
             cts.Cancel();
             var cancelled = false;
-            try { await running; } catch (OperationCanceledException) { cancelled = true; }
+            try { await running.ConfigureAwait(false); } catch (OperationCanceledException) { cancelled = true; }
             RequireFixture(cancelled, "User cancellation did not terminate active report generation.");
         }
         RequireFixture(cachedHash == Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(cachedPath))),
@@ -532,7 +532,7 @@ public static class SelfTestService
         var saveBeforeHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(saveCanonical)));
         Directory.CreateDirectory(saveLegacy); // prevents the second staged output from committing
         var saveFailed = false;
-        try { await saveFailureService.AnalyzeMeetingAsync(saveFailureMeeting, "General", reportLanguage: "ar"); }
+        try { await saveFailureService.AnalyzeMeetingAsync(saveFailureMeeting, "General", reportLanguage: "ar").ConfigureAwait(false); }
         catch (IOException) { saveFailed = true; }
         var reportsFolder = MeetingIntelligenceService.GetReportsFolder(saveFailureMeeting);
         RequireFixture(saveFailed && saveBeforeHash == Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(saveCanonical))) &&
@@ -541,16 +541,19 @@ public static class SelfTestService
             "Failed multi-file save did not restore the valid cache and remove partial report outputs.");
 
         // 7: the close-window cancellation path cancels the owned report operation.
-        var window = new IntelligenceWindow(cancelMeeting, cancelService, layoutQa: true)
-        {
-            Left = -3000, Top = -3000, ShowInTaskbar = false, ShowActivated = false
-        };
         using var closeCts = new CancellationTokenSource();
         var tokenAfterClose = closeCts.Token;
-        typeof(IntelligenceWindow).GetField("_reportGenerationCts", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-            .SetValue(window, closeCts);
-        window.Show();
-        window.Close();
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            var window = new IntelligenceWindow(cancelMeeting, cancelService, layoutQa: true)
+            {
+                Left = -3000, Top = -3000, ShowInTaskbar = false, ShowActivated = false
+            };
+            typeof(IntelligenceWindow).GetField("_reportGenerationCts", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .SetValue(window, closeCts);
+            window.Show();
+            window.Close();
+        });
         RequireFixture(tokenAfterClose.IsCancellationRequested, "Closing the report window did not cancel its active report CTS.");
 
         static string TranscriptHash(string path) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)));
