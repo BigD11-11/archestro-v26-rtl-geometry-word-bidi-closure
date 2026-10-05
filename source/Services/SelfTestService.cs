@@ -418,7 +418,7 @@ public static class SelfTestService
         // 2: extraction request timeout is typed, bounded, and does not leave a partial Ready file.
         var timeoutMeeting = MakeMeeting("resilience-extract-timeout");
         var timeoutService = Service(timeoutMeeting,
-            (_, _, _, token, _, _) => Task.Delay(Timeout.Infinite, token).ContinueWith<string>(_ => "", token),
+            (_, _, _, _, _, _) => new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously).Task,
             TimeSpan.FromMilliseconds(60), TimeSpan.FromSeconds(1));
         var requestClock = Stopwatch.StartNew();
         var extractionTimedOut = false;

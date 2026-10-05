@@ -58,12 +58,13 @@ public sealed class MeetingIntelligenceService
         WriteReportDiagnostic("model-request-start", $"stage={diagnosticStage}; provider={provider}; maxTokens={maxTokens}");
         try
         {
-            var result = _reportModelOverride is not null
-                ? await _reportModelOverride(systemPrompt, userPrompt, maxTokens, requestTimeout.Token, contextTokensOverride, preferJsonObject).ConfigureAwait(false)
+            var providerRequest = _reportModelOverride is not null
+                ? _reportModelOverride(systemPrompt, userPrompt, maxTokens, requestTimeout.Token, contextTokensOverride, preferJsonObject)
                 : !_providerRouter.IsCloudSelected
-                    ? await _llm.GenerateAsync(systemPrompt, userPrompt, maxTokens, requestTimeout.Token,
-                        contextTokensOverride, preferJsonObject).ConfigureAwait(false)
-                    : await GenerateCloudAsync(systemPrompt, userPrompt, maxTokens, requestTimeout.Token, preferJsonObject, contextTokensOverride).ConfigureAwait(false);
+                    ? _llm.GenerateAsync(systemPrompt, userPrompt, maxTokens, requestTimeout.Token,
+                        contextTokensOverride, preferJsonObject)
+                    : GenerateCloudAsync(systemPrompt, userPrompt, maxTokens, requestTimeout.Token, preferJsonObject, contextTokensOverride);
+            var result = await providerRequest.WaitAsync(requestTimeout.Token).ConfigureAwait(false);
             WriteReportDiagnostic("model-request-complete", $"stage={diagnosticStage}; elapsedMs={clock.ElapsedMilliseconds}; responseCharacters={result.Length}");
             return result;
         }
