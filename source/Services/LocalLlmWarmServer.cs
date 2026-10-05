@@ -66,7 +66,11 @@ public static class LocalLlmWarmServer
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
+            var requestClock = Stopwatch.StartNew();
+            WriteRuntimeDiagnostic("request-start", $"maxTokens={Math.Clamp(maxTokens, 16, 4096)}; contextTokens={Math.Clamp(contextTokens, 2048, 16384)}");
             using var response = await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            requestClock.Stop();
+            WriteRuntimeDiagnostic("request-response", $"elapsedMs={requestClock.ElapsedMilliseconds}; statusCode={(int)response.StatusCode}");
             if (!response.IsSuccessStatusCode)
                 return null;
 
@@ -92,11 +96,14 @@ public static class LocalLlmWarmServer
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            WriteRuntimeDiagnostic("request-canceled", "cancellationRequested=true; ownedServerStopped=true");
+            Stop();
             throw;
         }
-        catch
+        catch (Exception exception)
         {
             // Compatibility is intentionally best-effort. The caller retains the proven CLI fallback.
+            WriteRuntimeDiagnostic("request-fallback", $"errorType={exception.GetType().Name}; ownedServerStopped=true");
             Stop();
             return null;
         }
@@ -159,6 +166,7 @@ public static class LocalLlmWarmServer
             _process = process;
             _modelPath = modelPath;
             _contextCapacity = Math.Clamp(contextTokens, 2048, 16384);
+            WriteRuntimeDiagnostic("server-started", "ownedProcess=true; externalNetwork=false");
 
             var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(75);
             while (DateTimeOffset.UtcNow < deadline)
@@ -167,7 +175,10 @@ public static class LocalLlmWarmServer
                 if (_process.HasExited)
                     return false;
                 if (await IsHealthyAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    WriteRuntimeDiagnostic("server-healthy", "endpoint=loopback");
                     return true;
+                }
                 await Task.Delay(500, cancellationToken).ConfigureAwait(false);
             }
 
@@ -205,5 +216,16 @@ public static class LocalLlmWarmServer
         _process = null;
         _modelPath = "";
         _contextCapacity = 0;
+    }
+
+    private static void WriteRuntimeDiagnostic(string stage, string fields)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.Logs);
+            var line = $"[{DateTimeOffset.UtcNow:O}] stage=local-runtime-{stage}; {fields}{Environment.NewLine}";
+            File.AppendAllText(Path.Combine(AppPaths.Logs, "meeting-report-stage-diagnostics.log"), line, new UTF8Encoding(false));
+        }
+        catch { }
     }
 }

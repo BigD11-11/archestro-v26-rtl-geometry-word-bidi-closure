@@ -441,7 +441,7 @@ public static class SelfTestService
         var requestClock = Stopwatch.StartNew();
         var extractionTimedOut = false;
         try { await timeoutService.AnalyzeMeetingAsync(timeoutMeeting, "General", reportLanguage: "ar").ConfigureAwait(false); }
-        catch (MeetingReportTimeoutException timeout) { extractionTimedOut = timeout.Stage == "chunk"; }
+        catch (MeetingReportTimeoutException timeout) { extractionTimedOut = timeout.Stage.StartsWith("chunk", StringComparison.Ordinal); }
         WriteResilienceCheckpoint(root, "extract-timeout-returned");
         RequireFixture(extractionTimedOut && requestClock.Elapsed < TimeSpan.FromSeconds(2), "Local extraction timeout did not terminate within the bounded test window with its stage identity.");
         WriteResilienceCheckpoint(root, "extract-timeout-asserted");
@@ -453,6 +453,22 @@ public static class SelfTestService
                        Directory.GetFiles(MeetingIntelligenceService.GetReportsFolder(timeoutMeeting), "*.docx").Length == 0,
             "Extraction timeout left an exportable partial DOCX.");
         WriteResilienceCheckpoint(root, "extract-timeout-docx-asserted");
+
+        // 2a: one Local extraction timeout gets exactly one compact, bounded retry.
+        var retryMeeting = MakeMeeting("resilience-extract-compact-retry");
+        var retryAttempts = 0;
+        var retryService = Service(retryMeeting, (_, _, _, _, _, _) =>
+        {
+            if (Interlocked.Increment(ref retryAttempts) == 1)
+                return new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously).Task;
+            return Task.FromResult(ExtractionJson());
+        }, TimeSpan.FromMilliseconds(60), TimeSpan.FromSeconds(2));
+        var retryProgress = new InlineReportProgress();
+        var retriedReport = await retryService.AnalyzeMeetingAsync(retryMeeting, "General", progress: retryProgress, reportLanguage: "ar").ConfigureAwait(false);
+        RequireFixture(retryAttempts == 2 && retriedReport.ReportLanguage == "ar" &&
+                       File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(retryMeeting)) &&
+                       retryProgress.Values.Any(x => x.Percent > 66),
+            "Single bounded compact Local extraction retry did not pass validation, progress and durable report save.");
 
         // 2b: overall report deadline wins when each individual request is still within its own bound.
         var overallMeeting = MakeMeeting("resilience-overall-timeout");

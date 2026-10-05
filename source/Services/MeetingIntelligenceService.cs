@@ -55,7 +55,7 @@ public sealed class MeetingIntelligenceService
         requestTimeout.CancelAfter(_reportRequestTimeout);
         var clock = Stopwatch.StartNew();
         var provider = _reportModelOverride is not null || !_providerRouter.IsCloudSelected ? "local" : "cloud";
-        WriteReportDiagnostic("model-request-start", $"stage={diagnosticStage}; provider={provider}; maxTokens={maxTokens}");
+        WriteReportDiagnostic("model-request-start", $"stage={diagnosticStage}; provider={provider}; maxTokens={maxTokens}; promptCharacters={systemPrompt.Length + userPrompt.Length}");
         try
         {
             var providerRequest = _reportModelOverride is not null
@@ -524,14 +524,41 @@ Verified facts:
         CancellationToken cancellationToken,
         string logTag)
     {
-        var raw = await GenerateWithProviderAsync(
-            system,
-            user,
-            maxTokens,
-            cancellationToken,
-            contextTokensOverride: contextTokens,
-            preferJsonObject: true,
-            diagnosticStage: logTag).ConfigureAwait(false);
+        string raw;
+        try
+        {
+            raw = await GenerateWithProviderAsync(
+                system,
+                user,
+                maxTokens,
+                cancellationToken,
+                contextTokensOverride: contextTokens,
+                preferJsonObject: true,
+                diagnosticStage: logTag).ConfigureAwait(false);
+        }
+        catch (MeetingReportTimeoutException) when (
+            logTag == "chunk" &&
+            !_providerRouter.IsCloudSelected &&
+            maxTokens > 380 &&
+            !cancellationToken.IsCancellationRequested)
+        {
+            // Extraction is required for a trustworthy report. Retry the Local path once
+            // with a smaller output budget after its first bounded request times out.
+            // Evidence validation still gates every DTO; a second timeout remains terminal.
+            WriteReportDiagnostic("extract-retry-start", "attempt=2; reason=local-request-timeout; maxTokens=380");
+            var retrySystem = system + "\nKeep the JSON compact. Include only clearly evidenced items and omit empty categories.";
+            var retryClock = Stopwatch.StartNew();
+            raw = await GenerateWithProviderAsync(
+                retrySystem,
+                user,
+                maxTokens: 380,
+                cancellationToken,
+                contextTokensOverride: contextTokens,
+                preferJsonObject: true,
+                diagnosticStage: "chunk-retry").ConfigureAwait(false);
+            retryClock.Stop();
+            WriteReportDiagnostic("extract-retry-complete", $"elapsedMs={retryClock.ElapsedMilliseconds}; responseCharacters={raw.Length}");
+        }
 
         WriteReportDiagnostic("json-parse-start", $"stage={logTag}; responseCharacters={raw.Length}");
         if (TryParseReport(raw, out var dto))

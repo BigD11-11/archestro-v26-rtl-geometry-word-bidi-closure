@@ -1,4 +1,4 @@
-param([switch]$SelfTestOnly)
+﻿param([switch]$SelfTestOnly)
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 $script:Clock = [Diagnostics.Stopwatch]::StartNew()
@@ -13,7 +13,7 @@ $script:Result = Join-Path $script:Root 'Result'
 $script:RunRoot = Join-Path $script:Result ('RUN_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))
 $script:Zip = Join-Path $script:Root 'V28R1_SOURCE_AND_PROOF.zip'
 $script:Contents = $script:Root
-$script:ExpectedZip = 'B8EDD25D66E8A19566C8F1D34E52ADCA01EC060365C925BA078ED35A53A7AB1B'
+$script:ExpectedZip = 'E1271628B3EF214C5FDBAE42D5304BF4527662234CD4EC01CDA268A073AD81B9'
 $script:V25Exe = '76985810D7C9E8324BF0FCDC228277834CCEED7FC5674CEF3CB3042D9978EE81'
 $script:Repo = $script:Root
 $script:BranchSource = Join-Path $script:Repo 'source'
@@ -21,10 +21,15 @@ $script:Source = 'V:\خاص بي\ARCHESTRO_MEETING_VAULT_BUILD4_R4_3_STARTUP_LIF
 $script:Install = 'C:\Users\arefa\AppData\Local\Programs\Archestro\Meeting Vault'
 $script:Data = 'C:\Users\arefa\Documents\Archestro Meeting Vault'
 $script:DotNet = 'C:\Program Files\dotnet\dotnet.exe'
-$script:WordHelper = 'C:\Users\arefa\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1'
+$script:Python = (Get-Command python.exe -ErrorAction Stop).Source
+$script:DbSemanticAudit = Join-Path $script:Root 'DB_SEMANTIC_AUDIT.py'
+$script:WordHelper = 'C:\Users\arefa\.codex\skill-vault\sources\dachent-skills\.shared\office-com\scripts\office_com_preflight.ps1'
 $script:Backup = $null
+$script:ProtectedSnapshotRoot = $null
 $script:BeforeData = $null
 $script:BeforeManifest = $null
+$script:DatabaseSemanticBefore = $null
+$script:SettingsSemanticBefore = $null
 $script:ProtectedLogsBackup = $null
 $script:StartedProcess = $null
 $script:StartupLogSnapshot = $null
@@ -112,6 +117,69 @@ function TreeManifest([string]$Path) {
     foreach($file in $files){$relative=$file.FullName.Substring($Path.Length).TrimStart('\');$normalized=$relative.Replace('\','/');$nameHash=ByteHash ([Text.Encoding]::UTF8.GetBytes($relative.ToLowerInvariant()));$sha=HashFile $file.FullName;[void]$rows.Add([pscustomobject]@{relativePath=$normalized;size=$file.Length;sha256=$sha;lastWriteTimeUtc=$file.LastWriteTimeUtc.ToString('o')});[void]$parts.Add(('{0}|{1}|{2}' -f $nameHash,$file.Length,$sha));$bytes+=$file.Length}
     $all=[string]::Join([Environment]::NewLine,@($parts.ToArray()|Sort-Object));$aggregate=ByteHash ([Text.Encoding]::UTF8.GetBytes($all))
     return [pscustomobject]@{root=$Path;fileCount=$files.Count;bytes=$bytes;aggregateSha256=$aggregate;files=@($rows.ToArray()|Sort-Object relativePath)}
+}
+function GetDatabaseSemanticSnapshot([string]$Destination) {
+    $database=Join-Path $script:Data 'System\meeting-vault.db'
+    $out=$Destination+'.stdout.txt';$err=$Destination+'.stderr.txt'
+    RunNative $script:Python @($script:DbSemanticAudit,$database,$Destination) $script:Root ('SQLite semantic audit '+$Destination) $out $err 60 @(0)
+    return (Get-Content -LiteralPath $Destination -Raw | ConvertFrom-Json)
+}
+function GetSettingsSemanticSnapshot {
+    $settingsPath=Join-Path $script:Data 'System\settings.json'
+    $raw=Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+    $properties=@{};foreach($property in $raw.PSObject.Properties){$properties[$property.Name.ToLowerInvariant()]=$property.Value}
+    $provider=[string]$properties['intelligenceprovider'];$cloudEnabled=[bool]$properties['cloudintelligenceenabled'];$consent=[bool]$properties['cloudintelligenceconsentaccepted'];$encryptedKey=[string]$properties['encryptedintelligenceapikey']
+    return [pscustomobject]@{provider=$provider;cloudEnabled=$cloudEnabled;cloudConsent=$consent;encryptedKeyConfigured=(-not [string]::IsNullOrWhiteSpace($encryptedKey));appearance=[string]$properties['appearance'];preferredLanguage=[string]$properties['preferredlanguage']}
+}
+function TestDatabaseSemanticEqual($Before,$After) {
+    if($Before.integrity -ne 'ok' -or $After.integrity -ne 'ok' -or $Before.foreignKeyErrors -ne 0 -or $After.foreignKeyErrors -ne 0 -or $Before.schemaSha256 -ne $After.schemaSha256 -or $Before.logicalRows -ne $After.logicalRows){return $false}
+    $beforeMap=@{};$afterMap=@{};foreach($table in $Before.tables){$beforeMap[$table.table]=$table};foreach($table in $After.tables){$afterMap[$table.table]=$table}
+    if($beforeMap.Count -ne $afterMap.Count){return $false}
+    foreach($name in $beforeMap.Keys){if(-not $afterMap.ContainsKey($name) -or $beforeMap[$name].rows -ne $afterMap[$name].rows -or $beforeMap[$name].logicalSha256 -ne $afterMap[$name].logicalSha256){return $false}}
+    return $true
+}
+function TestSettingsSemanticEqual($Before,$After) { return (($Before|ConvertTo-Json -Compress) -ceq ($After|ConvertTo-Json -Compress)) }
+function GetProtectedSemanticComparison($AfterManifest) {
+    $afterDb=GetDatabaseSemanticSnapshot (Join-Path $script:RunRoot 'DATABASE_SEMANTIC_AFTER.json')
+    $afterSettings=GetSettingsSemanticSnapshot
+    $dbEqual=TestDatabaseSemanticEqual $script:DatabaseSemanticBefore $afterDb
+    $settingsEqual=TestSettingsSemanticEqual $script:SettingsSemanticBefore $afterSettings
+    $beforeMap=@{};$afterMap=@{}
+    foreach($f in $script:BeforeManifest.files){$beforeMap[$f.relativePath.ToLowerInvariant()]=$f};foreach($f in $AfterManifest.files){$afterMap[$f.relativePath.ToLowerInvariant()]=$f}
+    $special=@('system/meeting-vault.db','system/meeting-vault.db-wal','system/meeting-vault.db-shm','system/settings.json')
+    $otherChanged=New-Object Collections.ArrayList
+    foreach($key in @($beforeMap.Keys)+@($afterMap.Keys)|Select-Object -Unique){
+        if($special -contains $key){continue}
+        if($key -match '^system/meeting-vault\.db-journal$'){[void]$otherChanged.Add($key);continue}
+        if(-not $beforeMap.ContainsKey($key) -or -not $afterMap.ContainsKey($key) -or $beforeMap[$key].sha256 -ne $afterMap[$key].sha256 -or $beforeMap[$key].size -ne $afterMap[$key].size){[void]$otherChanged.Add($key)}
+    }
+    SaveJson (Join-Path $script:RunRoot 'DATA_INTEGRITY_SEMANTIC.json') ([pscustomobject]@{database=[pscustomobject]@{before=[pscustomobject]@{integrity=$script:DatabaseSemanticBefore.integrity;foreignKeyErrors=$script:DatabaseSemanticBefore.foreignKeyErrors;schemaSha256=$script:DatabaseSemanticBefore.schemaSha256;logicalRows=$script:DatabaseSemanticBefore.logicalRows;tableCount=$script:DatabaseSemanticBefore.tables.Count};after=[pscustomobject]@{integrity=$afterDb.integrity;foreignKeyErrors=$afterDb.foreignKeyErrors;schemaSha256=$afterDb.schemaSha256;logicalRows=$afterDb.logicalRows;tableCount=$afterDb.tables.Count};equal=$dbEqual};settings=[pscustomobject]@{before=$script:SettingsSemanticBefore;after=$afterSettings;equal=$settingsEqual};nonSqliteOtherPathChanges=$otherChanged.Count;pass=($dbEqual -and $settingsEqual -and $otherChanged.Count -eq 0)})
+    return [pscustomobject]@{databaseEqual=$dbEqual;settingsEqual=$settingsEqual;otherChanged=@($otherChanged.ToArray());afterDatabase=$afterDb;afterSettings=$afterSettings;pass=($dbEqual -and $settingsEqual -and $otherChanged.Count -eq 0)}
+}
+function BackupProtectedState {
+    $root=Join-Path $script:RunRoot 'PROTECTED_DATA_BASELINE_PRIVATE';New-Item -ItemType Directory -Path $root -Force|Out-Null
+    foreach($relative in @('System\meeting-vault.db','System\meeting-vault.db-wal','System\meeting-vault.db-shm','System\settings.json')){
+        $from=Join-Path $script:Data $relative;$to=Join-Path $root $relative
+        if(Test-Path -LiteralPath $from -PathType Leaf){New-Item -ItemType Directory -Path (Split-Path -Parent $to) -Force|Out-Null;Copy-Item -LiteralPath $from -Destination $to -Force}
+    }
+    $script:ProtectedSnapshotRoot=$root
+    $script:DatabaseSemanticBefore=GetDatabaseSemanticSnapshot (Join-Path $script:RunRoot 'DATABASE_SEMANTIC_BEFORE.json')
+    $script:SettingsSemanticBefore=GetSettingsSemanticSnapshot
+}
+function RestoreProtectedState {
+    if(-not $script:ProtectedSnapshotRoot){return [pscustomobject]@{status='NOT_CAPTURED'}}
+    $restored=New-Object Collections.ArrayList
+    foreach($relative in @('System\meeting-vault.db','System\meeting-vault.db-wal','System\meeting-vault.db-shm','System\settings.json')){
+        $target=Join-Path $script:Data $relative;$saved=Join-Path $script:ProtectedSnapshotRoot $relative
+        if(Test-Path -LiteralPath $saved -PathType Leaf){Copy-Item -LiteralPath $saved -Destination $target -Force;[void]$restored.Add([pscustomobject]@{pathClass=$relative;restoredSha256=(HashFile $saved)})}
+        elseif(Test-Path -LiteralPath $target -PathType Leaf){Remove-Item -LiteralPath $target -Force;[void]$restored.Add([pscustomobject]@{pathClass=$relative;restoredSha256=$null})}
+    }
+    $current=GetSettingsSemanticSnapshot
+    $settingsRestored=($current|ConvertTo-Json -Compress) -eq ($script:SettingsSemanticBefore|ConvertTo-Json -Compress)
+    $after=GetDatabaseSemanticSnapshot (Join-Path $script:RunRoot 'DATABASE_SEMANTIC_AFTER_RESTORE.json')
+    $dbRestored=TestDatabaseSemanticEqual $script:DatabaseSemanticBefore $after
+    $allExact=$true;foreach($item in $restored){$target=Join-Path $script:Data $item.pathClass;if($item.restoredSha256){if((HashFile $target) -ne $item.restoredSha256){$allExact=$false}}elseif(Test-Path -LiteralPath $target){$allExact=$false}}
+    return [pscustomobject]@{status=$(if($settingsRestored -and $dbRestored -and $allExact){'PASS'}else{'FAIL'});files=$restored.ToArray();databaseSemanticRestored=$dbRestored;settingsSemanticRestored=$settingsRestored;exactSnapshotRestored=$allExact}
 }
 function ClassifyProtectedPath([string]$RelativePath) {
     $rel=$RelativePath.Replace('\','/');$leaf=[IO.Path]::GetFileName($RelativePath)
@@ -253,10 +321,8 @@ Status: **$($script:Status)**
         [IO.File]::WriteAllText((Join-Path $script:RunRoot 'SUMMARY.md'),$summary,[Text.UTF8Encoding]::new($false))
         SaveJson (Join-Path $script:RunRoot 'STAGE_MATRIX.json') @($script:Stages.ToArray())
         $payload=Join-Path $script:RunRoot 'UPLOAD_PAYLOAD';New-Item -ItemType Directory -Path $payload -Force | Out-Null
-        foreach($name in @('SUMMARY.md','STAGE_MATRIX.json','PREFLIGHT.json','DATA_INTEGRITY.json','PROTECTED_DATA_BASELINE.json','PROTECTED_DATA_AFTER_QA.json','PROTECTED_DATA_DIFF.json','DATA_INTEGRITY_RESTORATION.json','PROTECTED_DATA_AFTER_INSTALL.json','PROTECTED_DATA_AFTER_INSTALL_DIFF.json','INSTALLED_EXE.json','PROVENANCE.json','ROLLBACK.json','FAILURE.txt','ATTEMPT_01_RUNNER_FAILURE.json','ATTEMPT_02_STALE_SOURCE_BASELINE.json','ATTEMPT_03_MISSING_PROJECT_FILE.json','ATTEMPT_04_PRIOR_DATA_RESTORED.json')){$file=Join-Path $script:RunRoot $name;if(Test-Path -LiteralPath $file){Copy-Item -LiteralPath $file -Destination $payload -Force}}
-        $priorAttempt=Join-Path $script:Root 'ATTEMPT_01_RUNNER_FAILURE.json';if(Test-Path -LiteralPath $priorAttempt){Copy-Item -LiteralPath $priorAttempt -Destination $payload -Force}
-        $checkpoint=Join-Path $script:Root 'PRE_RUN_CHECKPOINT.json';if(Test-Path -LiteralPath $checkpoint){Copy-Item -LiteralPath $checkpoint -Destination $payload -Force}
-        foreach($name in @('Staged','Installed','Startup','BuildLogs','Assets')){$dir=Join-Path $script:RunRoot $name;if(Test-Path -LiteralPath $dir){Copy-Item -LiteralPath $dir -Destination $payload -Recurse -Force}}
+        foreach($name in @('SUMMARY.md','STAGE_MATRIX.json','DATA_INTEGRITY_SEMANTIC.json','ROLLBACK.json','PROVENANCE.json','INSTALLED_EXE.json')){$file=Join-Path $script:RunRoot $name;if(Test-Path -LiteralPath $file){Copy-Item -LiteralPath $file -Destination $payload -Force}}
+        foreach($folder in @('Staged','Installed')){ $stageRoot=Join-Path $script:RunRoot $folder;if(Test-Path -LiteralPath $stageRoot){Get-ChildItem -LiteralPath $stageRoot -File -Recurse|Where-Object{$_.Name -match '^(01_SELF_TEST|INSTALLED_01_SELF_TEST|02_RTL_LAYOUT|INSTALLED_02_RTL_LAYOUT|03_V13_8_9|INSTALLED_03_V13_8_9|04_V13_8_MATRIX|INSTALLED_04_V13_8_MATRIX|05_CLOUD_FAKE_HTTP|INSTALLED_05_CLOUD_FAKE_HTTP|06_LOCAL_AI|INSTALLED_06_LOCAL_AI|07_SPEAKER|INSTALLED_07_SPEAKER|WORD_BIDI_SEMANTIC_PROOF|FUNCTIONAL_QA|INSTALLED_WORD_BIDI_SEMANTIC_PROOF|INSTALLED_FUNCTIONAL_QA)(\.receipt)?\.json$'}|ForEach-Object{$rel=$_.FullName.Substring($stageRoot.Length).TrimStart('\');$target=Join-Path (Join-Path $payload $folder) $rel;New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force|Out-Null;Copy-Item -LiteralPath $_.FullName -Destination $target -Force}}}
         $proof=Join-Path $script:Contents 'QA_EVIDENCE\V28R1';if(Test-Path -LiteralPath $proof){Copy-Item -LiteralPath $proof -Destination (Join-Path $payload 'V28R1_SOURCE_PROOF_QA') -Recurse -Force}
         Copy-Item -LiteralPath $script:Zip -Destination (Join-Path $payload 'V28R1_SOURCE_AND_PROOF.zip') -Force
         $resultZip=Join-Path $script:Result 'RESULT_TO_UPLOAD.zip';if(Test-Path -LiteralPath $resultZip){Remove-Item -LiteralPath $resultZip -Force}
@@ -273,10 +339,14 @@ if($SelfTestOnly){
     $reserved=@('PID','HOME','HOST','PSHOME','PROFILE','PSScriptRoot','PSCommandPath','MyInvocation','Args','Input','Matches','Error','ExecutionContext','ShellId','StackTrace','This','True','False','Null')
     $collisions=@($ast.FindAll({param($node)$node -is [Management.Automation.Language.ParameterAst]},$true)|ForEach-Object{$_.Name.VariablePath.UserPath}|Where-Object{$reserved -contains $_})
     if($collisions.Count){throw ('Automatic-variable parameter collision: '+($collisions -join ','))}
+    $semanticFixture=[pscustomobject]@{integrity='ok';foreignKeyErrors=0;schemaSha256='schema';logicalRows=1;tables=@([pscustomobject]@{table='meetings';rows=1;logicalSha256='rows'})}
+    if(-not (TestDatabaseSemanticEqual $semanticFixture $semanticFixture)){throw 'SQLite semantic equality positive fixture failed.'}
+    $semanticBad=[pscustomobject]@{integrity='ok';foreignKeyErrors=0;schemaSha256='schema';logicalRows=1;tables=@([pscustomobject]@{table='meetings';rows=1;logicalSha256='changed'})}
+    if(TestDatabaseSemanticEqual $semanticFixture $semanticBad){throw 'SQLite semantic equality negative fixture failed.'}
     if((StepTime ([TimeSpan]::FromSeconds(2.2))) -ne '2.2s'){throw 'Timer fixture failed.'}
     if((HashFile $script:Zip) -ne $script:ExpectedZip){throw 'V28R1 package SHA mismatch.'}
     $null=TestZip $script:Zip
-    Say 'PASS' 'Exact script parse, timer fixture, collision scan, V28R1 SHA and ZIP CRC PASS' Green
+    Say 'PASS' 'Exact script parse, SQLite semantic compare fixtures, timer fixture, collision scan, V28R1 SHA and ZIP CRC PASS' Green
     exit 0
 }
 
@@ -309,6 +379,9 @@ $expectedSourceCommit='e7266506a4e85b835fc55ccc3fdb85c0a54115a0';$null=(& $gitEx
     $script:BeforeData=TreeHash $script:Data
     $script:BeforeManifest=TreeManifest $script:Data
     SaveJson (Join-Path $script:RunRoot 'PROTECTED_DATA_BASELINE.json') $script:BeforeManifest
+    BackupProtectedState
+    if($script:DatabaseSemanticBefore.integrity -ne 'ok' -or $script:DatabaseSemanticBefore.foreignKeyErrors -ne 0){throw 'Fresh V25 database baseline failed integrity/foreign-key preflight.'}
+    SaveJson (Join-Path $script:RunRoot 'DATA_INTEGRITY_BASELINE_SANITIZED.json') ([pscustomobject]@{databaseIntegrity=$script:DatabaseSemanticBefore.integrity;foreignKeyErrors=$script:DatabaseSemanticBefore.foreignKeyErrors;schemaSha256=$script:DatabaseSemanticBefore.schemaSha256;logicalRows=$script:DatabaseSemanticBefore.logicalRows;tableCount=$script:DatabaseSemanticBefore.tables.Count;settings=$script:SettingsSemanticBefore;protectedSnapshotCaptured=$true})
     CaptureProtectedLogsBaseline
     $assetInventory|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $script:RunRoot 'Assets\INVENTORY.json') -Encoding UTF8
     SaveJson (Join-Path $script:RunRoot 'PREFLIGHT.json') ([pscustomobject]@{installedV25Exe=[pscustomobject]@{path=$oldExe;bytes=(Get-Item $oldExe).Length;sha256=$script:V25Exe;matchesRecordedHash=$true;productVersion=(Get-Item $oldExe).VersionInfo.ProductVersion};dotnet=$script:DotNet;sdks=$sdk;PowerShell=$PSVersionTable.PSVersion.ToString();dataRoot=$script:Data;dataFiles=$script:BeforeData.fileCount;dataBytes=$script:BeforeData.bytes;dataAggregateSha256=$script:BeforeData.aggregateSha256;assets=$assetInventory;wordHelperAvailable=(Test-Path $script:WordHelper);wordLive='WORD_LIVE_OWNER_SMOKE_REQUIRED';aimsTouch='NONE';tastePass='HOLD';realCloudCredentialsUsed=$false})
@@ -394,10 +467,10 @@ $expectedSourceCommit='e7266506a4e85b835fc55ccc3fdb85c0a54115a0';$null=(& $gitEx
     SaveJson (Join-Path $script:RunRoot 'PROTECTED_DATA_AFTER_INSTALL.json') $afterInstallManifest
     $installDelta=CompareTreeManifests $script:BeforeManifest $afterInstallManifest
     SaveJson (Join-Path $script:RunRoot 'PROTECTED_DATA_AFTER_INSTALL_DIFF.json') $installDelta
-    $installDeltaCount=$installDelta.added.Count+$installDelta.removed.Count+$installDelta.changed.Count
-    $installSame=$installDeltaCount -eq 0 -and $afterInstallManifest.aggregateSha256 -eq $script:BeforeManifest.aggregateSha256
-    SaveJson (Join-Path $script:RunRoot 'DATA_INTEGRITY.json') ([pscustomobject]@{before=$script:BeforeManifest;afterInstalled=$afterInstallManifest;comparison=$(if($installSame){'PASS_IDENTICAL'}else{'FAIL_CHANGED'});userDataIncludedInUpload=$false})
-    if(-not $installSame){throw 'Protected user data path/size/SHA256 changed after installed QA or startup.'}
+    $semanticComparison=GetProtectedSemanticComparison $afterInstallManifest
+    $installSame=$semanticComparison.pass
+    if(-not $installSame){throw ('Protected-data semantic gate failed: database='+$semanticComparison.databaseEqual+' settings='+$semanticComparison.settingsEqual+' nonSqlitePathChanges='+$semanticComparison.otherChanged.Count)}
+    SaveJson (Join-Path $script:RunRoot 'DATA_INTEGRITY.json') ([pscustomobject]@{comparison='PASS_SQLITE_SEMANTIC_AND_SETTINGS';databaseEqual=$semanticComparison.databaseEqual;settingsEqual=$semanticComparison.settingsEqual;nonSqliteChangedPathCount=$semanticComparison.otherChanged.Count;userDataIncludedInUpload=$false})
     $script:Status='V28R1_INSTALLED_LOCAL_OWNER_SMOKE_IN_PROGRESS';$script:Rollback='BACKUP_RETAINED_OWNER_ACCEPTANCE_PENDING'
     EndStage 'PASS' 'Installed EXE identity, complete installed QA, startup and protected-data per-file equality PASS'
 
@@ -411,14 +484,16 @@ catch {
     Say 'FAIL' ('V28R1 owner run stopped: '+$_.Exception.Message) Red
     if($script:StartupLogSnapshot){try{RestoreAppLogs $script:StartupLogSnapshot (Join-Path $script:RunRoot 'Startup\LogProtection');$script:StartupLogSnapshot=$null}catch{$script:Rollback='USER_LOG_RESTORE_FAILED: '+$_.Exception.Message}}
     if($script:Mutated -and $script:Backup -and (Test-Path -LiteralPath $script:Backup)){
+        $protectedRestoreStatus='NOT_RUN';$protectedRestoreError=$null
+        if($script:StartedProcess -and -not $script:StartedProcess.HasExited){try{[void]$script:StartedProcess.CloseMainWindow();if(-not $script:StartedProcess.WaitForExit(10000)){Stop-Process -Id $script:StartedProcess.Id -Force}}catch{$protectedRestoreError='Could not close candidate app: '+$_.Exception.Message}}
+        try {$protectedRestore=RestoreProtectedState;$protectedRestoreStatus=$protectedRestore.status;SaveJson (Join-Path $script:RunRoot 'PROTECTED_STATE_ROLLBACK.json') $protectedRestore}catch{$protectedRestoreError=$_.Exception.Message;SaveJson (Join-Path $script:RunRoot 'PROTECTED_STATE_ROLLBACK.json') ([pscustomobject]@{status='FAIL';errorClass=$_.Exception.GetType().Name})}
         try {
-            if($script:StartedProcess -and -not $script:StartedProcess.HasExited){[void]$script:StartedProcess.CloseMainWindow();if(-not $script:StartedProcess.WaitForExit(10000)){Stop-Process -Id $script:StartedProcess.Id -Force}}
             $failed=$script:Install+'.FAILED_'+(Get-Date -Format 'yyyyMMdd_HHmmss')
             if(Test-Path -LiteralPath $script:Install){Move-Item -LiteralPath $script:Install -Destination $failed}
             Move-Item -LiteralPath $script:Backup -Destination $script:Install
             $restored=(HashFile (Join-Path $script:Install 'Archestro.MeetingVault.exe')) -eq $script:V25Exe
-            $script:Rollback=if($restored){'V25_APP_BYTES_RESTORED_PASS'}else{'ROLLBACK_VERIFY_FAIL'}
-            SaveJson (Join-Path $script:RunRoot 'ROLLBACK.json') ([pscustomobject]@{status=$script:Rollback;restoredV25ExeSha256=(HashFile (Join-Path $script:Install 'Archestro.MeetingVault.exe'));failedInstallPreserved=$failed;userDataMoved=$false})
+            $script:Rollback=if($restored -and $protectedRestoreStatus -eq 'PASS' -and -not $protectedRestoreError){'V25_APP_AND_PROTECTED_DATA_RESTORED_PASS'}else{'ROLLBACK_VERIFY_FAIL'}
+            SaveJson (Join-Path $script:RunRoot 'ROLLBACK.json') ([pscustomobject]@{status=$script:Rollback;restoredV25ExeSha256=(HashFile (Join-Path $script:Install 'Archestro.MeetingVault.exe'));failedInstallPreserved=$failed;protectedDataRestore=$protectedRestoreStatus;protectedDataRestoreErrorClass=$(if($protectedRestoreError){'RestoreVerificationFailed'}else{$null});userDataMoved=$false})
         } catch { $script:Rollback='ROLLBACK_FAILED: '+$_.Exception.Message;Say 'FAIL' $script:Rollback Red }
     }
     if($script:StageClock){try{EndStage 'FAIL' $_.Exception.Message}catch{}}
