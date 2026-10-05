@@ -255,7 +255,7 @@ public static class SelfTestService
 
         var suggestion = new SuggestedMetadataService().Suggest("We discussed the contract agreement and renewal.");
         if (suggestion.Category != "Contracts")
-            throw new InvalidOperationException("Suggested category self-test failed.");
+            throw new InvalidOperationException($"Suggested category self-test failed; actual={suggestion.Category}.");
 
         if (!repo.AddCategory("Self Test Client", "#2F80ED"))
             throw new InvalidOperationException("Dynamic category add self-test failed.");
@@ -456,16 +456,22 @@ public static class SelfTestService
 
         // 2a: one Local extraction timeout gets exactly one compact, bounded retry.
         var retryMeeting = MakeMeeting("resilience-extract-compact-retry");
-        var retryAttempts = 0;
-        var retryService = Service(retryMeeting, (_, _, _, _, _, _) =>
+        var extractionAttempts = 0;
+        var retryService = Service(retryMeeting, (system, _, _, _, _, _) =>
         {
-            if (Interlocked.Increment(ref retryAttempts) == 1)
-                return new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously).Task;
+            if (system.Contains("Extract concise factual report material", StringComparison.Ordinal))
+            {
+                if (Interlocked.Increment(ref extractionAttempts) == 1)
+                    return new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously).Task;
+                return Task.FromResult(ExtractionJson());
+            }
+            if (system.Contains("Create a concise customer-facing", StringComparison.Ordinal))
+                return Task.FromResult(SynthesisJson("تمت مراجعة خطة التشغيل والموارد المطلوبة."));
             return Task.FromResult(ExtractionJson());
         }, TimeSpan.FromMilliseconds(60), TimeSpan.FromSeconds(2));
         var retryProgress = new InlineReportProgress();
         var retriedReport = await retryService.AnalyzeMeetingAsync(retryMeeting, "General", progress: retryProgress, reportLanguage: "ar").ConfigureAwait(false);
-        RequireFixture(retryAttempts == 2 && retriedReport.ReportLanguage == "ar" &&
+        RequireFixture(extractionAttempts == 2 && retriedReport.ReportLanguage == "ar" &&
                        File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(retryMeeting)) &&
                        retryProgress.Values.Any(x => x.Percent > 66),
             "Single bounded compact Local extraction retry did not pass validation, progress and durable report save.");
