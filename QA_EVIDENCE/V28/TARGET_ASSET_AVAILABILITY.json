@@ -1,0 +1,33 @@
+{
+  "status": "MISSING_TARGET_ASSETS",
+  "checkedPublishDirectory": "win-x64 publish output",
+  "checks": [
+    {
+      "asset": "Qwen3-4B-Q4_K_M.gguf",
+      "targetPath": "System/AI/Models/Qwen3-4B-Q4_K_M.gguf",
+      "present": false
+    },
+    {
+      "asset": "llama-cli.exe",
+      "targetPath": "System/AI/llama/llama-cli.exe",
+      "present": false
+    },
+    {
+      "asset": "sherpa segmentation model",
+      "targetPath": "System/SpeakerModels/sherpa-onnx-pyannote-segmentation-3-0/model.onnx",
+      "present": false
+    },
+    {
+      "asset": "speaker embedding model",
+      "targetPath": "System/SpeakerModels/3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx",
+      "present": false
+    },
+    {
+      "asset": "4-speaker audio fixture",
+      "targetPath": "System/SpeakerModels/0-four-speakers-zh.wav",
+      "present": false
+    }
+  ],
+  "aiSelfTest": "SKIPPED",
+  "speakerSelfTest": "SKIPPED"
+}
