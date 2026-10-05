@@ -71,12 +71,17 @@ public sealed class MeetingIntelligenceService
         catch (OperationCanceledException) when (requestTimeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
             WriteReportDiagnostic("model-request-timeout", $"stage={diagnosticStage}; elapsedMs={clock.ElapsedMilliseconds}; timeoutSeconds={_reportRequestTimeout.TotalSeconds:0}");
+            WriteReportDiagnostic("model-request-timeout-propagating", $"stage={diagnosticStage}");
             throw new MeetingReportTimeoutException(diagnosticStage, "Local AI report request exceeded its bounded time limit.");
         }
         catch (Exception ex)
         {
             WriteReportDiagnostic("model-request-failed", $"stage={diagnosticStage}; elapsedMs={clock.ElapsedMilliseconds}; errorType={ex.GetType().Name}");
             throw;
+        }
+        finally
+        {
+            WriteReportDiagnostic("model-request-finished", $"stage={diagnosticStage}; elapsedMs={clock.ElapsedMilliseconds}");
         }
     }
 
@@ -188,9 +193,24 @@ public sealed class MeetingIntelligenceService
                         : $"Completed section {i + 1} of {chunks.Count}"
                 });
             }
-            finally { extractionGate.Release(); }
+            catch (Exception ex)
+            {
+                WriteReportDiagnostic("extract-chunk-failed", $"chunk={i + 1}/{chunks.Count}; errorType={ex.GetType().Name}");
+                throw;
+            }
+            finally
+            {
+                extractionGate.Release();
+                WriteReportDiagnostic("extract-chunk-finished", $"chunk={i + 1}/{chunks.Count}");
+            }
         }).ToArray();
-        await Task.WhenAll(extractionTasks).ConfigureAwait(false);
+        WriteReportDiagnostic("extract-await-start", $"taskCount={extractionTasks.Length}");
+        try { await Task.WhenAll(extractionTasks).ConfigureAwait(false); }
+        catch (Exception ex)
+        {
+            WriteReportDiagnostic("extract-await-failed", $"errorType={ex.GetType().Name}; elapsedMs={reportClock.ElapsedMilliseconds}");
+            throw;
+        }
         var extracted = extractedByChunk.Where(dto => dto is not null).Cast<ReportDto>().ToList();
         WriteReportDiagnostic("extract-complete", $"elapsedMs={reportClock.ElapsedMilliseconds}; requests={completedChunks}; completedDtos={extracted.Count}; evidenceLines={evidence.Count}; chunkCount={chunks.Count}");
 
