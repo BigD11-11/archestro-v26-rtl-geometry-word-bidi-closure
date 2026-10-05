@@ -1,0 +1,1577 @@
+<Window x:Class="Archestro.MeetingVault.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:local="clr-namespace:Archestro.MeetingVault"
+        Title="Archestro Meeting Vault"
+        Width="1520" Height="900"
+        MinWidth="1180" MinHeight="720"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        BorderThickness="0"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True"
+        Background="{DynamicResource AppBackground}"
+        Foreground="{DynamicResource PrimaryTextBrush}"
+        FontFamily="Segoe UI Variable Text">
+
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="0"
+                        ResizeBorderThickness="6"
+                        GlassFrameThickness="0"
+                        CornerRadius="0"
+                        UseAeroCaptionButtons="False"/>
+  </shell:WindowChrome.WindowChrome>
+
+  <Window.Resources>
+    <local:UiDynamicTextConverter x:Key="UiDynamicTextConverter"/>
+
+    <!-- V13.8.9 FINAL: theme-safe scrollbars; no native white fallback. -->
+    <Style TargetType="ScrollBar">
+      <Setter Property="Background" Value="{DynamicResource ScrollTrackBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource ScrollThumbBrush}"/>
+      <Setter Property="Width" Value="10"/>
+      <Setter Property="Height" Value="10"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ScrollBar">
+            <Grid x:Name="Root" Background="{TemplateBinding Background}">
+              <Track x:Name="PART_Track" IsDirectionReversed="True" Focusable="False">
+                <Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/></Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                  <Thumb>
+                    <Thumb.Template><ControlTemplate TargetType="Thumb"><Border x:Name="ThumbBody" Background="{DynamicResource ScrollThumbBrush}" CornerRadius="5" Margin="2"/></ControlTemplate></Thumb.Template>
+                  </Thumb>
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/></Track.IncreaseRepeatButton>
+              </Track>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="Height" Value="10"/>
+                <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <SolidColorBrush x:Key="AppBackground" Color="#06101D"/>
+    <SolidColorBrush x:Key="PanelBrush" Color="#BC0B1728"/>
+    <SolidColorBrush x:Key="PanelBrush2" Color="#CE0E1C2F"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#273B55"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#8FA2BB"/>
+    <SolidColorBrush x:Key="BlueBrush" Color="#3B82F6"/>
+    <SolidColorBrush x:Key="GreenBrush" Color="#31C874"/>
+    <SolidColorBrush x:Key="AmberBrush" Color="#F5A623"/>
+    <SolidColorBrush x:Key="RedBrush" Color="#FF6268"/>
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#F7F9FC"/>
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#91A3B8"/>
+    <SolidColorBrush x:Key="SidebarBrush" Color="#F20B1626"/>
+    <SolidColorBrush x:Key="TitleBarBrush" Color="#FF08111F"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#FF111F33"/>
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#FF172A44"/>
+    <SolidColorBrush x:Key="InputBrush" Color="#FF0D192B"/>
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#26374A"/>
+    <SolidColorBrush x:Key="AccentSoftBorderBrush" Color="#506A84"/>
+    <SolidColorBrush x:Key="AccentTextBrush" Color="#9EB7CE"/>
+
+    <Style x:Key="GlassCard" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="20"/>
+      <Setter Property="Padding" Value="18"/>
+    </Style>
+
+    <Style x:Key="PillButton" TargetType="Button">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="14,9"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="12"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.82"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.38"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="PrimaryPillButton" TargetType="Button" BasedOn="{StaticResource PillButton}">
+      <Setter Property="Background" Value="{DynamicResource PrimaryActionBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource PrimaryActionBorderBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryActionTextBrush}"/>
+    </Style>
+
+    <Style x:Key="DangerPillButton" TargetType="Button" BasedOn="{StaticResource PillButton}">
+      <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource DangerBorderBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource DangerTextBrush}"/>
+    </Style>
+
+    <Style x:Key="NavButton" TargetType="Button">
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Padding" Value="14,12"/>
+      <Setter Property="Margin" Value="0,3,0,3"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="NavBd"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="12"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="Tag" Value="Active">
+                <Setter TargetName="NavBd" Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+                <Setter TargetName="NavBd" Property="BorderBrush" Value="{DynamicResource AccentSoftBorderBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="NavBd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="InputStyle" TargetType="TextBox">
+      <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="14,0"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="SelectionBrush" Value="{DynamicResource PrimaryActionBrush}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="MinHeight" Value="56"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TextBox">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="12">
+              <ScrollViewer x:Name="PART_ContentHost"
+                            Margin="{TemplateBinding Padding}"
+                            VerticalAlignment="Stretch"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ThemeComboBoxItem" TargetType="ComboBoxItem">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBoxItem">
+            <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="7" Margin="4,2">
+              <ContentPresenter/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource PrimaryActionBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource PrimaryActionTextBrush}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ThemeComboBox" TargetType="ComboBox">
+      <Setter Property="Background" Value="{DynamicResource InputBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="ItemContainerStyle" Value="{StaticResource ThemeComboBoxItem}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBox">
+            <Grid x:Name="TemplateRoot" SnapsToDevicePixels="True">
+              <Border x:Name="ComboBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10"/>
+              <ToggleButton x:Name="Toggle" Focusable="False" ClickMode="Press" Background="Transparent" BorderThickness="0" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="Transparent"/>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <ContentPresenter IsHitTestVisible="False" Margin="12,0,38,0" VerticalAlignment="Center" HorizontalAlignment="Left" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" TextElement.Foreground="{DynamicResource PrimaryTextBrush}"/>
+              <Path IsHitTestVisible="False" Width="8" Height="5" HorizontalAlignment="Right" Margin="0,0,13,0" VerticalAlignment="Center" Fill="{DynamicResource SecondaryTextBrush}" Data="M 0 0 L 4 4 L 8 0 Z"/>
+              <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+                <Border x:Name="DropDownBorder" MinWidth="{Binding ActualWidth, ElementName=TemplateRoot}" MaxHeight="280" Margin="0,5,0,0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="4">
+                  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsPresenter/>
+                  </ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/></Trigger>
+              <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource FocusBrush}"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ComboBorder" Property="Opacity" Value="0.55"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="ChipButton" TargetType="Button" BasedOn="{StaticResource PillButton}">
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="Margin" Value="0,0,7,7"/>
+      <Setter Property="FontSize" Value="10.5"/>
+      <Setter Property="MinWidth" Value="58"/>
+    </Style>
+
+    <Style x:Key="TrafficButton" TargetType="Button">
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Foreground" Value="#5A3A3A"/>
+      <Setter Property="FontSize" Value="9"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Grid Width="{TemplateBinding Width}" Height="{TemplateBinding Height}">
+              <Ellipse x:Name="Dot" Fill="{TemplateBinding Background}"/>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Margin="0,-1,0,0"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Dot" Property="Opacity" Value="0.82"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="CircleHitButton" TargetType="Button">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border Background="Transparent" CornerRadius="160">
+              <ContentPresenter/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="ContextMenu">
+      <Setter Property="Background" Value="{DynamicResource MenuBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ContextMenu">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="10"
+                    Padding="5"
+                    SnapsToDevicePixels="True">
+              <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="MenuItem">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+      <Setter Property="Padding" Value="8,7"/>
+      <Setter Property="MinWidth" Value="260"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="MenuItem">
+            <Grid x:Name="MenuRoot"
+                  Background="{TemplateBinding Background}"
+                  MinHeight="34"
+                  SnapsToDevicePixels="True">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="18"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock x:Name="CheckGlyph"
+                         Grid.Column="0"
+                         Text="✓"
+                         Foreground="{DynamicResource GreenBrush}"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Visibility="Collapsed"/>
+              <ContentPresenter Grid.Column="1"
+                                ContentSource="Header"
+                                Margin="{TemplateBinding Padding}"
+                                VerticalAlignment="Center"
+                                RecognizesAccessKey="True"/>
+              <Path x:Name="SubmenuArrow"
+                    Grid.Column="2"
+                    Data="M 0 0 L 5 4 L 0 8 Z"
+                    Width="5"
+                    Height="8"
+                    Fill="{DynamicResource SecondaryTextBrush}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Visibility="Collapsed"/>
+              <Popup x:Name="PART_Popup"
+                     Placement="Right"
+                     HorizontalOffset="-2"
+                     AllowsTransparency="True"
+                     Focusable="False"
+                     IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                     PopupAnimation="Fade">
+                <Border Background="{DynamicResource MenuBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="5">
+                  <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                </Border>
+              </Popup>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="MenuRoot" Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}"/>
+                <Setter TargetName="MenuRoot" Property="Opacity" Value="0.72"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="CheckGlyph" Property="Visibility" Value="Visible"/>
+              </Trigger>
+              <Trigger Property="HasItems" Value="True">
+                <Setter TargetName="SubmenuArrow" Property="Visibility" Value="Visible"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="Separator">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Separator">
+            <Border Height="1"
+                    Margin="10,5"
+                    Background="{DynamicResource BorderBrush}"/>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="LibraryHeaderText" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+      <Setter Property="FontSize" Value="9.5"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="LibraryDirectionalText" TargetType="TextBlock">
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Style.Triggers>
+        <Trigger Property="FlowDirection" Value="RightToLeft"><Setter Property="TextAlignment" Value="Right"/></Trigger>
+        <Trigger Property="FlowDirection" Value="LeftToRight"><Setter Property="TextAlignment" Value="Left"/></Trigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Resources>
+
+  <Grid Background="{DynamicResource AppBackground}">
+    <!-- Global Archestro watermark -->
+    <Image Source="Assets/ArchestroWatermark.png" Opacity="0.055"
+           Stretch="Uniform"
+           MaxWidth="460"
+           HorizontalAlignment="Center"
+           VerticalAlignment="Center"
+           Margin="0,90,0,0"
+           IsHitTestVisible="False"/>
+
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="34"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="36"/>
+      </Grid.RowDefinitions>
+
+      <!-- Apple-inspired custom title bar -->
+      <Grid Grid.Row="0" Background="{DynamicResource TitleBarBrush}" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+        <StackPanel Orientation="Horizontal" Margin="15,0,0,0" VerticalAlignment="Center">
+          <Button Style="{StaticResource TrafficButton}" Width="14" Height="14" Margin="0,0,8,0" Background="#FF5F57" Foreground="#7B1F1F" Content="×" Click="Close_Click"/>
+          <Button Style="{StaticResource TrafficButton}" Width="14" Height="14" Margin="0,0,8,0" Background="#FFBD2E" Foreground="#745400" Content="−" Click="Minimize_Click"/>
+          <Button Style="{StaticResource TrafficButton}" Width="14" Height="14" Background="#28C840" Foreground="#0D611F" Content="□" Click="Maximize_Click"/>
+        </StackPanel>
+        <TextBlock x:Name="TitleProductText" Text="Archestro • Meeting Vault"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Foreground="{DynamicResource SecondaryTextBrush}" FontSize="10.5"/>
+      </Grid>
+
+      <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition x:Name="SidebarColumn" Width="232"/>
+          <ColumnDefinition x:Name="WorkspaceColumn" Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Sidebar -->
+        <Border x:Name="SidebarShell" Grid.Column="0" Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+          <Grid Margin="16,18,16,16">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5,0,0,20">
+              <Border Width="58" Height="58" CornerRadius="29"
+                      Background="{DynamicResource LogoPlateBrush}"
+                      BorderBrush="{DynamicResource LogoPlateBorderBrush}"
+                      BorderThickness="2"
+                      Padding="3"
+                      Margin="0,0,11,0">
+                <Image Source="Assets/ArchestroMeetingVaultIcon.png" Width="44" Height="44"
+                       Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="SidebarBrandName" Text="ARCHESTRO" FontWeight="SemiBold" FontSize="17"/>
+                <TextBlock x:Name="SidebarProductName" Text="Meeting Vault" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="9.5" Margin="0,2,0,0"/>
+              </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Row="1">
+              <Button x:Name="HomeNavButton" Style="{StaticResource NavButton}" Tag="Active" Click="BackHome_Click">
+                <StackPanel Orientation="Horizontal"><TextBlock Text="⌂" Width="28" Foreground="{DynamicResource AccentTextBrush}"/><TextBlock Text="Home"/></StackPanel>
+              </Button>
+              <Button x:Name="LibraryNavButton" Style="{StaticResource NavButton}" Click="OpenLibrary_Click">
+                <StackPanel Orientation="Horizontal"><TextBlock Text="□" Width="28" Foreground="{DynamicResource AccentTextBrush}"/><TextBlock Text="Library"/></StackPanel>
+              </Button>
+              <Button x:Name="SearchNavButton" Style="{StaticResource NavButton}" Click="OpenSearch_Click">
+                <StackPanel Orientation="Horizontal"><TextBlock Text="⌕" Width="28" Foreground="{DynamicResource AccentTextBrush}"/><TextBlock Text="Search"/></StackPanel>
+              </Button>
+              <Button x:Name="IntelligenceNavButton" Style="{StaticResource NavButton}" Click="OpenVaultIntelligence_Click">
+                <StackPanel Orientation="Horizontal"><TextBlock Text="✦" Width="28" Foreground="{DynamicResource AccentTextBrush}"/><TextBlock Text="Intelligence"/></StackPanel>
+              </Button>
+              <Button x:Name="PeopleNavButton" Style="{StaticResource NavButton}" Click="OpenPeople_Click">
+                <StackPanel Orientation="Horizontal"><TextBlock Text="◎" Width="28" Foreground="{DynamicResource AccentTextBrush}"/><TextBlock Text="People"/></StackPanel>
+              </Button>
+              <Button x:Name="CategoriesNavButton" Style="{StaticResource NavButton}" Click="OpenCategories_Click">
+                <StackPanel Orientation="Horizontal"><TextBlock Text="▦" Width="28" Foreground="{DynamicResource AccentTextBrush}"/><TextBlock Text="Categories"/></StackPanel>
+              </Button>
+              <Button x:Name="SettingsNavButton" Style="{StaticResource NavButton}" Click="OpenSettings_Click">
+                <StackPanel Orientation="Horizontal"><TextBlock Text="⚙" Width="28" Foreground="{DynamicResource AccentTextBrush}"/><TextBlock Text="Settings"/></StackPanel>
+              </Button>
+            </StackPanel>
+
+            <StackPanel Grid.Row="3">
+              <Border BorderBrush="#1D3049" BorderThickness="0,1,0,0" Padding="4,14,4,0">
+                <StackPanel>
+                  <TextBlock Text="◉  Privacy" FontWeight="SemiBold" FontSize="12"/>
+                  <Button x:Name="PrivacyToggleButton"
+                          Style="{StaticResource PillButton}"
+                          Content="◉  Hide recent recordings"
+                          Margin="0,9,0,5"
+                          Click="ToggleRecent_Click"/>
+                  <TextBlock Text="Hide meeting names on Home with one click."
+                             Foreground="{DynamicResource SecondaryTextBrush}" FontSize="9.5" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Border>
+
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- Main content -->
+        <Grid x:Name="MainContentShell" Grid.Column="1" Margin="24,18,24,12">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="72"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+
+          <Grid x:Name="MainHeaderShell" Grid.Row="0">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock x:Name="GreetingText" Text="Welcome" FontSize="26" FontWeight="SemiBold"/>
+              <TextBlock x:Name="HeaderClock" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11.5" Margin="0,5,0,0"/>
+            </StackPanel>
+          </Grid>
+
+          <!-- HOME -->
+          <Grid x:Name="HomeView" Grid.Row="1">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition x:Name="HomeRecordColumn" Width="1.17*"/>
+              <ColumnDefinition x:Name="HomeRecentColumn" Width="0.83*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border x:Name="RecorderCard" Grid.Column="0" Style="{StaticResource GlassCard}" Margin="0,0,10,0">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="*"/>
+                  <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,0">
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Meeting name -->
+                <Grid Grid.Row="0" Margin="38,0,38,10">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBox x:Name="MeetingNameBox"
+                           Grid.Column="0"
+                           Height="48"
+                           Style="{StaticResource InputStyle}"
+                           TextChanged="MeetingNameBox_TextChanged"
+                           GotKeyboardFocus="MeetingNameBox_GotKeyboardFocus"
+                           LostKeyboardFocus="MeetingNameBox_LostKeyboardFocus"
+                           ToolTip="Optional. If left blank, date/time stays primary and a suggested title is created after transcription."/>
+                  <TextBlock x:Name="MeetingNamePlaceholder"
+                             Grid.Column="0"
+                             Text="Meeting name (optional)"
+                             Foreground="{DynamicResource MutedBrush}"
+                             Margin="14,0,14,0"
+                             VerticalAlignment="Center"
+                             IsHitTestVisible="False"/>
+                  <Border Grid.Column="1" Width="34" Height="34" Margin="9,0,0,0"
+                          Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1" CornerRadius="17"
+                          VerticalAlignment="Center">
+                    <TextBlock x:Name="NameCommitGlyph" Text="✓" Foreground="{DynamicResource AccentTextBrush}" FontSize="15"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                </Grid>
+                <TextBlock x:Name="NameCommitText"
+                           Grid.Row="1"
+                           Text="Optional • name is committed automatically when recording starts"
+                           HorizontalAlignment="Center"
+                           Foreground="{DynamicResource SecondaryTextBrush}" FontSize="9.5" Margin="0,0,0,5"/>
+
+                <!-- Main circular recording control: scales to the available Home height so status cards stay visible without scrolling. -->
+                <Viewbox Grid.Row="2" Stretch="Uniform" StretchDirection="DownOnly" MaxHeight="226" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,2">
+                <Grid HorizontalAlignment="Center" Width="260" Height="260">
+                  <Ellipse x:Name="RecordGlowEllipse" Width="250" Height="250" Opacity="0.18">
+                    <Ellipse.Fill>
+                      <RadialGradientBrush>
+                        <GradientStop Color="#663B82F6" Offset="0.55"/>
+                        <GradientStop Color="#003B82F6" Offset="1"/>
+                      </RadialGradientBrush>
+                    </Ellipse.Fill>
+                  </Ellipse>
+                  <Ellipse x:Name="RecordCircle" Width="232" Height="232" Stroke="{DynamicResource RecorderRingBrush}" StrokeThickness="4.5">
+                    <Ellipse.Fill><DynamicResource ResourceKey="RecorderFaceBrush"/></Ellipse.Fill>
+                    <Ellipse.Effect>
+                      <DropShadowEffect Color="#4D7FB8" BlurRadius="22" ShadowDepth="0" Opacity="0.22"/>
+                    </Ellipse.Effect>
+                  </Ellipse>
+                  <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="188" IsHitTestVisible="False">
+                    <TextBlock x:Name="RecordStateText" Text="READY TO RECORD" Foreground="{DynamicResource BlueBrush}"
+                               FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                    <TextBlock Text="🎙" FontSize="40" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="TimerText" Text="00:00:00" FontSize="31" FontWeight="SemiBold" Foreground="{DynamicResource RecorderPrimaryBrush}"
+                               HorizontalAlignment="Center" Margin="0,8,0,3"/>
+                    <TextBlock x:Name="RecordLabel" Text="START MEETING" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource RecorderPrimaryBrush}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="RecordSubText" Text="Tap the circle to start" Foreground="{DynamicResource RecorderSecondaryBrush}"
+                               FontSize="9" Width="172" MaxWidth="172" MaxHeight="28" LineHeight="12"
+                               TextAlignment="Center" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                  </StackPanel>
+                  <!-- Full-circle hit target: Start / Stop &amp; Save -->
+                  <Button x:Name="RecordHitButton"
+                          Style="{StaticResource CircleHitButton}"
+                          Width="242" Height="242"
+                          ToolTip="Click anywhere on the circle to start, or Stop &amp; Save while recording."
+                          Click="Record_Click"/>
+                </Grid>
+                </Viewbox>
+
+                <!-- Live timeline / waveform -->
+                <Grid Grid.Row="3" Margin="20,0,20,6">
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <Grid Grid.Row="0" Margin="0,0,0,6">
+                    <TextBlock Text="LIVE AUDIO TIMELINE" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="9.5"
+                               VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                      <Button x:Name="PauseButton"
+                              Style="{StaticResource PillButton}"
+                              Content="⏸  PAUSE"
+                              Width="150"
+                              Padding="15,9"
+                              Margin="0,0,10,0"
+                              Background="#332311"
+                              BorderBrush="#8D6428"
+                              Foreground="#F7B760"
+                              Visibility="Collapsed"
+                              ToolTip="Pause private/off-record discussion. Press again to resume."
+                              Click="Pause_Click"/>
+                      <Button x:Name="MarkButton"
+                              Style="{StaticResource PrimaryPillButton}"
+                              Padding="18,9"
+                              IsEnabled="False"
+                              Click="Mark_Click">
+                        <StackPanel Orientation="Horizontal">
+                          <TextBlock Text="●" Foreground="#FF5F57" FontSize="14" Margin="0,-1,7,0"/>
+                          <TextBlock Text="MARK THIS MOMENT" FontWeight="SemiBold"/>
+                        </StackPanel>
+                      </Button>
+                    </StackPanel>
+                    <Border x:Name="TimelinePauseStatus"
+                            Visibility="Collapsed"
+                            HorizontalAlignment="Right"
+                            Background="#332311"
+                            BorderBrush="#8D6428"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="10,6">
+                      <TextBlock Text="Ⅱ PAUSED • NOT RECORDING"
+                                 Foreground="#F7B760"
+                                 FontSize="9.5"
+                                 FontWeight="SemiBold"/>
+                    </Border>
+                  </Grid>
+                  <Border Grid.Row="1" x:Name="WaveformBorder"
+                          Background="{DynamicResource InputBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                          CornerRadius="14" Padding="10,6">
+                    <Grid>
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="34"/>
+                        <RowDefinition Height="16"/>
+                      </Grid.RowDefinitions>
+                      <Canvas x:Name="WaveformCanvas" Grid.Row="0" ClipToBounds="True">
+                        <Line x:Name="WaveformMidLine" Stroke="{DynamicResource AccentSoftBorderBrush}" StrokeThickness="1"/>
+                        <Polyline x:Name="WaveformLine" Stroke="{DynamicResource PrimaryActionBrush}" StrokeThickness="1.7" StrokeLineJoin="Round"/>
+                        <Canvas x:Name="MarkerCanvas" IsHitTestVisible="False"/>
+                        <Border x:Name="WaveformPauseOverlay"
+                                Visibility="Collapsed"
+                                Width="{Binding ActualWidth, ElementName=WaveformCanvas}"
+                                Height="{Binding ActualHeight, ElementName=WaveformCanvas}"
+                                Background="#181B1307"
+                                BorderBrush="#5C623222"
+                                BorderThickness="1"
+                                CornerRadius="9"
+                                Canvas.Left="0"
+                                Canvas.Top="0"/>
+                      </Canvas>
+                      <Grid Grid.Row="1">
+                        <TextBlock Text="00:00" Foreground="{DynamicResource MutedBrush}" FontSize="9" HorizontalAlignment="Left"/>
+                        <TextBlock x:Name="WaveCurrentText" Text="00:00" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="9" HorizontalAlignment="Right"/>
+                      </Grid>
+                    </Grid>
+                  </Border>
+                </Grid>
+
+                <!-- Hint -->
+                <StackPanel Grid.Row="4" HorizontalAlignment="Center" VerticalAlignment="Top">
+                  <TextBlock x:Name="HintText"
+                             Text="Ready when the meeting starts."
+                             Foreground="{DynamicResource SecondaryTextBrush}"
+                             HorizontalAlignment="Center"
+                             FontSize="10"
+                             Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <!-- System status cards -->
+                <Grid Grid.Row="5" Margin="18,5,18,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                  </Grid.ColumnDefinitions>
+
+                  <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="13" Padding="10" Margin="0,0,6,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                      <Border Width="34" Height="34" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,9,0">
+                        <TextBlock Text="🎤" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="15"/>
+                      </Border>
+                      <StackPanel>
+                        <TextBlock Text="Microphone" FontSize="10.5"/>
+                        <TextBlock x:Name="MicStatusText" Text="Checking…" Foreground="{DynamicResource WarningAccentBrush}" FontSize="9.5" Margin="0,2,0,0"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+
+                  <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="13" Padding="10" Margin="2,0,4,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                      <Border Width="34" Height="34" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,9,0">
+                        <TextBlock Text="🔊" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="15"/>
+                      </Border>
+                      <StackPanel>
+                        <TextBlock Text="System Audio" FontSize="10.5"/>
+                        <TextBlock x:Name="SystemAudioStatusText" Text="Checking…" Foreground="{DynamicResource WarningAccentBrush}" FontSize="9.5" Margin="0,2,0,0"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+
+                  <Border Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="13" Padding="10" Margin="4,0,2,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                      <Border Width="34" Height="34" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,9,0">
+                        <TextBlock Text="💾" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="15"/>
+                      </Border>
+                      <StackPanel>
+                        <TextBlock Text="Storage" FontSize="10.5"/>
+                        <TextBlock x:Name="StorageStatusText" Text="Checking…" Foreground="{DynamicResource WarningAccentBrush}" FontSize="9.5" Margin="0,2,0,0"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+
+                  <Border Grid.Column="3" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="13" Padding="10" Margin="6,0,0,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                      <Border Width="34" Height="34" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1" CornerRadius="10" Margin="0,0,9,0">
+                        <TextBlock Text="📝" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="15"/>
+                      </Border>
+                      <StackPanel>
+                        <TextBlock Text="Transcription" FontSize="10.5"/>
+                        <TextBlock x:Name="TranscriptionStatusText" Text="Checking…" Foreground="{DynamicResource WarningAccentBrush}" FontSize="9.5" Margin="0,2,0,0"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </Grid>
+
+              </Grid>
+                <!-- Live transcription news-rail -->
+                <Border x:Name="TranscriptionTickerBorder"
+                        Grid.Row="1"
+                        Margin="18,6,18,8"
+                        Height="36"
+                        MinHeight="36"
+                        VerticalAlignment="Stretch"
+                        Background="{DynamicResource AccentSoftBrush}"
+                        BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        ClipToBounds="True">
+                  <Grid>
+                    <Border Width="10" Height="10" CornerRadius="5"
+                            Background="{DynamicResource PrimaryActionBrush}"
+                            HorizontalAlignment="Left" Margin="12,0,0,0"
+                            VerticalAlignment="Center"/>
+                    <Grid x:Name="TranscriptionTickerViewport" Margin="32,0,12,0" ClipToBounds="True">
+                      <TextBlock x:Name="TranscriptionTickerText"
+                                 Text="Transcription ready • new recordings will move through capture, language recovery, and finalization here."
+                                 Foreground="{DynamicResource AccentTextBrush}"
+                                 FontSize="9.5"
+                                 VerticalAlignment="Center"
+                                 TextWrapping="NoWrap">
+                        <TextBlock.RenderTransform>
+                          <TranslateTransform x:Name="TranscriptionTickerTransform"/>
+                        </TextBlock.RenderTransform>
+                      </TextBlock>
+                    </Grid>
+                  </Grid>
+                </Border>
+            </Grid>
+            </Border>
+
+            <!-- Recent recordings -->
+            <Border x:Name="RecentPanel" Grid.Column="1" Style="{StaticResource GlassCard}" Margin="10,0,0,0">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,12">
+                  <TextBlock Text="Recent recordings" FontSize="17" FontWeight="SemiBold"/>
+                  <Button Style="{StaticResource PillButton}" Content="◉  Hide" HorizontalAlignment="Right" Padding="11,6" Click="ToggleRecent_Click"/>
+                </Grid>
+
+                <ListBox x:Name="RecentList"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         Grid.Row="1"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Foreground="{DynamicResource PrimaryTextBrush}"
+                         HorizontalContentAlignment="Stretch"
+                         MouseDoubleClick="RecentList_MouseDoubleClick">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="13" Padding="11" Margin="0,0,0,8">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="38"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+
+                          <Border Width="36" Height="36" Background="{Binding CategoryColor}" CornerRadius="10" Opacity="0.85">
+                            <TextBlock Text="🎙" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="13"/>
+                          </Border>
+
+                          <StackPanel Grid.Column="1" Margin="9,0,8,0">
+                            <TextBlock Text="{Binding PrimaryTitle}" FontWeight="SemiBold" FontSize="12.5" TextTrimming="CharacterEllipsis"/>
+                            <Grid Margin="0,2,0,0">
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                              </Grid.ColumnDefinitions>
+                              <TextBlock Text="{Binding SuggestedLine, Converter={StaticResource UiDynamicTextConverter}}" Foreground="{DynamicResource WarningAccentBrush}" FontSize="9.3"
+                                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                              <Button Grid.Column="1" Tag="{Binding Id}" Content="✓ Use"
+                                      Padding="7,3" Margin="7,0,0,0"
+                                      FontSize="8.5"
+                                      Click="UseSuggestedTitle_Click">
+                                <Button.Style>
+                                  <Style TargetType="Button" BasedOn="{StaticResource PillButton}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                      <DataTrigger Binding="{Binding SuggestedLine}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                      </DataTrigger>
+                                    </Style.Triggers>
+                                  </Style>
+                                </Button.Style>
+                              </Button>
+                              <Button Grid.Column="2" Tag="{Binding Id}" Content="✎"
+                                      Padding="7,3" Margin="5,0,0,0"
+                                      FontSize="8.5" ToolTip="Edit meeting title"
+                                      Click="EditMeetingTitle_Click"/>
+                            </Grid>
+                            <TextBlock Text="{Binding MetaLine}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="9.2" Margin="0,3,0,0"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                              <Border Background="{Binding CategoryColor}" CornerRadius="6" Padding="6,2" Margin="0,0,7,0">
+                                <TextBlock Text="{Binding Category}" FontSize="8.5"/>
+                              </Border>
+                              <TextBlock Text="{Binding StatusDisplay}" Foreground="#6ED89B" FontSize="9"/>
+                            </StackPanel>
+                          </StackPanel>
+
+                          <WrapPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" MaxWidth="158" Margin="6,0,0,0">
+                            <Button Tag="{Binding Id}" Content="{Binding TranscriptActionLabel, Converter={StaticResource UiDynamicTextConverter}}"
+                                    Padding="9,7" Margin="0,0,5,0"
+                                    ToolTip="Start now or move this queued transcript to the front. Active transcripts remain visible but cannot be duplicated."
+                                    Click="TranscribeNow_Click"
+                                    IsEnabled="{Binding CanTranscribeNow}">
+                              <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource PillButton}">
+                                  <Setter Property="Visibility" Value="Collapsed"/>
+                                  <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowTranscriptAction}" Value="True">
+                                      <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style>
+                              </Button.Style>
+                            </Button>
+                            <Button Style="{StaticResource PillButton}" Content="▶" Tag="{Binding Id}" Padding="9,7" Margin="0,0,5,0" Click="OpenRecording_Click"/>
+                            <Button Style="{StaticResource PillButton}" Content="📝" Tag="{Binding Id}" Padding="9,7" Margin="0,0,5,0" Click="OpenTranscript_Click"/>
+                            <Button Style="{StaticResource PillButton}" Content="👥" Tag="{Binding Id}" Padding="9,7" Margin="0,0,5,0" ToolTip="Speaker Intelligence" Click="OpenSpeakerTranscript_Click"/>
+                            <Button Style="{StaticResource PillButton}" Content="✦" Tag="{Binding Id}" Padding="9,7" Margin="0,0,5,0" ToolTip="Local Intelligence" Click="OpenIntelligence_Click"/>
+                            <Button Style="{StaticResource PillButton}" Content="•••" Tag="{Binding Id}" Padding="9,7" Click="More_Click"/>
+                          </WrapPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Button Grid.Row="2" Style="{StaticResource PillButton}" Content="View all recordings  →" Height="38" Margin="0,4,0,12" Click="OpenLibrary_Click"/>
+
+                <StackPanel Grid.Row="3">
+                  <TextBlock Text="Quick categories" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                  <WrapPanel x:Name="HomeCategoryPanel"/>
+                </StackPanel>
+              </Grid>
+            </Border>
+
+          </Grid>
+
+          <!-- LIBRARY -->
+          <Grid x:Name="LibraryView" Grid.Row="1" Visibility="Hidden">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource GlassCard}" Padding="14" Margin="0,0,0,12">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="SearchBox"
+                         Grid.Column="0"
+                         Height="48"
+                         Style="{StaticResource InputStyle}"
+                         TextChanged="SearchBox_TextChanged"
+                         GotKeyboardFocus="SearchBox_GotKeyboardFocus"
+                         LostKeyboardFocus="SearchBox_LostKeyboardFocus"
+                         ToolTip="Search meeting titles, suggested titles, notes, and transcript text."/>
+                <TextBlock x:Name="SearchPlaceholder"
+                           Grid.Column="0"
+                           Text="Search meetings, notes, or transcript..."
+                           Foreground="{DynamicResource MutedBrush}"
+                           Margin="15,0,0,0"
+                           VerticalAlignment="Center"
+                           IsHitTestVisible="False"/>
+                <Button x:Name="AddCategoryButton"
+                        Grid.Column="1"
+                        Style="{StaticResource PrimaryPillButton}"
+                        Content="Manage Categories"
+                        Margin="10,0,0,0"
+                        Click="OpenCategories_Click"/>
+              </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Style="{StaticResource GlassCard}" Padding="12" Margin="0,0,0,12">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="10,6" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                  <TextBlock x:Name="LibraryCountText" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="10" FontWeight="SemiBold"/>
+                </Border>
+                <WrapPanel x:Name="LibraryCategoryPanel" Grid.Column="1" HorizontalAlignment="Right"/>
+              </Grid>
+            </Border>
+
+            <Border x:Name="LibraryAudioImportCard"
+                    Grid.Row="2"
+                    Loaded="LocalizedDynamicContent_Loaded"
+                    Style="{StaticResource GlassCard}"
+                    Padding="14"
+                    Margin="0,0,0,12"
+                    AllowDrop="True"
+                    MouseLeftButtonUp="LibraryAudioImportCard_MouseLeftButtonUp"
+                    DragEnter="LibraryAudioImport_DragEnter"
+                    DragOver="LibraryAudioImport_DragOver"
+                    DragLeave="LibraryAudioImport_DragLeave"
+                    Drop="LibraryAudioImport_Drop">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Button x:Name="LibraryImportAudioIconButton"
+                        Width="42" Height="42" Padding="0"
+                        Style="{StaticResource PillButton}"
+                        AutomationProperties.Name="Import a recording"
+                        ToolTip="Import a recording"
+                        Click="LibraryImportAudio_Click"
+                        VerticalAlignment="Center">
+                  <Border Width="42" Height="42" CornerRadius="12"
+                        Background="{DynamicResource AccentSoftBrush}"
+                        BorderBrush="{DynamicResource AccentSoftBorderBrush}" BorderThickness="1"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="⊞" FontSize="22" FontWeight="SemiBold"
+                             Foreground="{DynamicResource AccentTextBrush}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                </Button>
+
+                <StackPanel Grid.Column="1" Margin="12,0,12,0" VerticalAlignment="Center">
+                  <TextBlock Text="Import a recording" FontWeight="SemiBold" FontSize="12.5"/>
+                  <TextBlock x:Name="LibraryAudioImportStatusText"
+                             Text="Drop an audio file here, or choose a file. It stays local and appears as a recording in your Library."
+                             Foreground="{DynamicResource SecondaryTextBrush}"
+                             FontSize="9.5" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <Button x:Name="LibraryImportAudioButton"
+                        Grid.Column="2"
+                        Style="{StaticResource PrimaryPillButton}"
+                        Content="Import audio"
+                        Padding="16,9"
+                        VerticalAlignment="Center"
+                        Click="LibraryImportAudio_Click"/>
+              </Grid>
+            </Border>
+
+            <Border Grid.Row="3" Style="{StaticResource GlassCard}" Padding="14">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="4,0,4,10">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.45*"/>
+                    <ColumnDefinition Width="0.82*"/>
+                    <ColumnDefinition Width="0.52*"/>
+                    <ColumnDefinition Width="0.60*"/>
+                    <ColumnDefinition Width="0.98*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Meeting" Style="{StaticResource LibraryHeaderText}"/>
+                  <TextBlock Grid.Column="1" Text="Date &amp; Time" Style="{StaticResource LibraryHeaderText}"/>
+                  <TextBlock Grid.Column="2" Text="Duration" Style="{StaticResource LibraryHeaderText}"/>
+                  <TextBlock Grid.Column="3" Text="Category" Style="{StaticResource LibraryHeaderText}"/>
+                  <TextBlock Grid.Column="4" Text="Status" Style="{StaticResource LibraryHeaderText}"/>
+                  <TextBlock Grid.Column="5" Text="Actions" Style="{StaticResource LibraryHeaderText}" MinWidth="430"/>
+                </Grid>
+
+                <ListBox x:Name="LibraryList"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         Grid.Row="1"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Foreground="{DynamicResource PrimaryTextBrush}"
+                         HorizontalContentAlignment="Stretch">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="11" Margin="0,0,0,7" Loaded="LocalizedDynamicContent_Loaded">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.45*"/>
+                            <ColumnDefinition Width="0.82*"/>
+                            <ColumnDefinition Width="0.52*"/>
+                            <ColumnDefinition Width="0.60*"/>
+                            <ColumnDefinition Width="0.98*"/>
+                            <ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+
+                          <StackPanel>
+                            <TextBlock Text="{Binding PrimaryTitle}" Style="{StaticResource LibraryDirectionalText}" FontSize="11.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                            <Grid Margin="0,3,0,0">
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                              </Grid.ColumnDefinitions>
+                              <TextBlock Text="{Binding SuggestedLine}" Foreground="{DynamicResource WarningAccentBrush}" FontSize="9.2"
+                                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                              <Button Grid.Column="1" Tag="{Binding Id}" Content="✓ Use title"
+                                      Padding="7,3" Margin="7,0,0,0"
+                                      FontSize="8.5"
+                                      Click="UseSuggestedTitle_Click">
+                                <Button.Style>
+                                  <Style TargetType="Button" BasedOn="{StaticResource PillButton}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                      <DataTrigger Binding="{Binding SuggestedLine}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                      </DataTrigger>
+                                    </Style.Triggers>
+                                  </Style>
+                                </Button.Style>
+                              </Button>
+                              <Button Grid.Column="2" Tag="{Binding Id}" Content="✎"
+                                      Padding="7,3" Margin="5,0,0,0"
+                                      FontSize="8.5" ToolTip="Edit meeting title"
+                                      Click="EditMeetingTitle_Click"/>
+                            </Grid>
+                            <TextBlock Text="{Binding Notes}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="8.8" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
+                          </StackPanel>
+
+                          <TextBlock Grid.Column="1" Text="{Binding DateLine, Converter={StaticResource UiDynamicTextConverter}}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="9.3" TextWrapping="Wrap" VerticalAlignment="Center" TextAlignment="Center" Margin="12,0,18,0"/>
+                          <TextBlock Grid.Column="2" Text="{Binding DurationText}" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="9.5" VerticalAlignment="Center" TextAlignment="Center" Margin="10,0,14,0"/>
+
+                          <Border Grid.Column="3" Background="{Binding CategoryColor}" CornerRadius="7" Padding="7,3" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Category, Converter={StaticResource UiDynamicTextConverter}}" FontSize="8.8"/>
+                          </Border>
+
+                          <StackPanel Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4,0,8,0" ClipToBounds="True">
+                            <TextBlock Text="{Binding StatusPrimaryDisplay, Converter={StaticResource UiDynamicTextConverter}}" Foreground="#69D898"
+                                       FontSize="9.2" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusDisplay}"/>
+                            <TextBlock Text="{Binding StatusSecondaryDisplay, Converter={StaticResource UiDynamicTextConverter}}" Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontSize="8.5" Margin="0,2,0,0"
+                                       TextTrimming="CharacterEllipsis"/>
+                          </StackPanel>
+
+                          <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Tag="{Binding Id}" Content="{Binding TranscriptActionLabel}"
+                                    Padding="9,7" Margin="0,0,5,0"
+                                    ToolTip="Start now or prioritize a queued transcript. Active work stays visible instead of disappearing."
+                                    Click="TranscribeNow_Click"
+                                    IsEnabled="{Binding CanTranscribeNow}">
+                              <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource PillButton}">
+                                  <Setter Property="Visibility" Value="Collapsed"/>
+                                  <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowTranscriptAction}" Value="True">
+                                      <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style>
+                              </Button.Style>
+                            </Button>
+                            <Button Style="{StaticResource PillButton}" Content="▶ Recording" Tag="{Binding Id}" Padding="9,7" Margin="0,0,5,0" Click="OpenRecording_Click"/>
+                            <Button Style="{StaticResource PillButton}" Content="📝 Transcript" Tag="{Binding Id}" Padding="9,7" Margin="0,0,5,0" Click="OpenTranscript_Click"/>
+                            <Button Style="{StaticResource PillButton}" Content="👥 Speakers" Tag="{Binding Id}" Padding="9,7" Margin="0,0,5,0" Click="OpenSpeakerTranscript_Click"/>
+                            <Button Style="{StaticResource PrimaryPillButton}" Content="★ Meeting Report" Tag="{Binding Id}" Padding="10,7" Margin="0,0,5,0" ToolTip="Executive summary, decisions, actions and evidence" Click="OpenMeetingReport_Click"/>
+                            <Button Style="{StaticResource PillButton}" Content="✦ Intelligence" Tag="{Binding Id}" Padding="9,7" Margin="0,0,5,0" Click="OpenIntelligence_Click"/>
+                            <Button Style="{StaticResource PillButton}" Content="•••" Tag="{Binding Id}" Padding="9,7" Click="More_Click"/>
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </Grid>
+            </Border>
+          </Grid>
+
+          <!-- VAULT INTELLIGENCE -->
+          <Grid x:Name="IntelligenceView" Grid.Row="1" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource GlassCard}" Margin="0,0,0,12" Padding="18">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Border Width="52" Height="52" CornerRadius="26"
+                        Background="{DynamicResource LogoPlateBrush}"
+                        BorderBrush="{DynamicResource LogoPlateBorderBrush}" BorderThickness="2"
+                        Padding="3"
+                        VerticalAlignment="Center" Margin="0,0,14,0">
+                  <Image Source="Assets/ArchestroMeetingVaultIcon.png" Width="32" Height="32"
+                         Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="Vault Intelligence" FontSize="23" FontWeight="SemiBold"/>
+                  <TextBlock Text="Ask across your meeting memory. Archestro finds the exact meetings, speakers and moments behind every answer."
+                             Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,5,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                  <Button x:Name="VaultFocusModeButton"
+                          Style="{StaticResource PillButton}"
+                          Content="⛶  Focus mode"
+                          Padding="11,7"
+                          Margin="0,0,8,0"
+                          ToolTip="Expand Vault Intelligence to use the full workspace."
+                          Click="VaultFocusMode_Click"/>
+                  <Border Background="{DynamicResource AccentSoftBrush}" BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                          BorderThickness="1" CornerRadius="10" Padding="11,7" VerticalAlignment="Center">
+                    <TextBlock Text="Private • Local • Evidence-linked" Foreground="{DynamicResource AccentTextBrush}" FontWeight="SemiBold" FontSize="10.5"/>
+                  </Border>
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Style="{StaticResource GlassCard}" Padding="14" Margin="0,0,0,12">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Grid>
+                  <TextBox x:Name="VaultIntelligenceQueryBox"
+                           Style="{StaticResource InputStyle}"
+                           FlowDirection="LeftToRight"
+                           TextAlignment="Left"
+                           MinHeight="52"
+                           TextChanged="VaultIntelligenceQueryBox_TextChanged"
+                           KeyDown="VaultIntelligenceQueryBox_KeyDown"
+                           ToolTip="Search or ask about any meeting, topic, decision, action or phrase."
+                           AutomationProperties.HelpText="Ask anything about your meetings">
+                    <TextBox.ContextMenu>
+                      <ContextMenu Background="{DynamicResource PanelBrush}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   BorderBrush="{DynamicResource BorderBrush}"
+                                   BorderThickness="1"
+                                   Padding="4">
+                        <MenuItem Header="Cut" Command="ApplicationCommands.Cut"/>
+                        <MenuItem Header="Copy" Command="ApplicationCommands.Copy"/>
+                        <MenuItem Header="Paste" Command="ApplicationCommands.Paste"/>
+                        <MenuItem Header="Select all" Command="ApplicationCommands.SelectAll"/>
+                      </ContextMenu>
+                    </TextBox.ContextMenu>
+                  </TextBox>
+                </Grid>
+                <Button Grid.Column="1" Style="{StaticResource PillButton}"
+                        Content="Find mentions" Margin="10,0,0,0"
+                        Padding="16,10" Click="VaultFindMentions_Click"/>
+                <Button Grid.Column="2" Style="{StaticResource PrimaryPillButton}"
+                        Content="Ask the Vault" Margin="8,0,0,0"
+                        Padding="16,10" Click="VaultAsk_Click"/>
+              </Grid>
+            </Border>
+
+            <Border Grid.Row="2" Style="{StaticResource GlassCard}" Padding="0">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Margin="16,13,16,10">
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse x:Name="VaultBusyPulse" Width="8" Height="8" Fill="{DynamicResource PrimaryActionBrush}" Margin="0,0,8,0" Opacity="0"/>
+                    <TextBlock x:Name="VaultIntelligenceStatusText"
+                               Text="Ask a question, or search an exact word to see every matching meeting."
+                               Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock x:Name="VaultBusyElapsedText"
+                               Margin="10,0,0,0"
+                               Visibility="Collapsed"
+                               Foreground="{DynamicResource AccentTextBrush}"
+                               FontSize="10.5"
+                               FontWeight="SemiBold"/>
+                  </StackPanel>
+                  <TextBlock Text="Find mentions = exact recall  •  Ask = evidence-grounded answer"
+                             HorizontalAlignment="Right"
+                             Foreground="{DynamicResource AccentTextBrush}" FontSize="10"/>
+                </Grid>
+
+                <ScrollViewer x:Name="VaultConversationScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="14,6,14,14">
+                  <ItemsControl x:Name="VaultConversationList">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="14"
+                                Padding="14"
+                                Margin="{Binding BubbleMargin}"
+                                MaxWidth="1260"
+                                HorizontalAlignment="{Binding Alignment}">
+                          <Border.Style>
+                            <Style TargetType="Border">
+                              <Setter Property="Background" Value="{DynamicResource ChatAssistantBrush}"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                  <Setter Property="Background" Value="{DynamicResource ChatUserBrush}"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </Border.Style>
+                          <StackPanel>
+                            <TextBlock Text="{Binding Role}" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AccentTextBrush}" FontSize="10.5"/>
+                            <TextBlock Text="{Binding Body}" TextWrapping="Wrap" LineHeight="20"
+                                       FlowDirection="{Binding FlowDirection}"
+                                       TextAlignment="{Binding TextAlignment}"
+                                       Language="{Binding Language}"
+                                       Margin="0,5,0,0"/>
+                            <TextBlock Text="{Binding Meta}" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontSize="10" Margin="0,7,0,0"/>
+                            <ItemsControl ItemsSource="{Binding EvidenceCards}" Margin="0,10,0,0">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                  <Border Background="{DynamicResource EvidenceCardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="11" Padding="11" Margin="0,0,0,8">
+                                    <StackPanel>
+                                      <TextBlock Text="{Binding Header}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                      <ItemsControl ItemsSource="{Binding Items}" Margin="0,7,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                          <DataTemplate>
+                                            <Border Background="{DynamicResource EvidenceRowBrush}" CornerRadius="8" Padding="9" Margin="0,0,0,6">
+                                              <StackPanel>
+                                                <WrapPanel>
+                                                  <TextBlock Text="{Binding TimeText}" Foreground="{DynamicResource AccentTextBrush}" FontWeight="SemiBold" FontSize="10.5"/>
+                                                  <TextBlock Text="{Binding Speaker}" Foreground="{DynamicResource AccentTextBrush}" FontWeight="SemiBold" FontSize="10.5" Margin="8,0,0,0"/>
+                                                  <TextBlock Text="{Binding SpeakerMatchLabel}" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="10.5" Margin="8,0,0,0"/>
+                                                </WrapPanel>
+                                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="0,4,0,0" MaxHeight="72"/>
+                                                <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                                                  <Button Content="▶ Play" Tag="{Binding}" Style="{StaticResource PillButton}" Padding="9,5" Margin="0,0,6,0" Click="VaultEvidencePlay_Click"/>
+                                                  <Button Content="Open transcript" Tag="{Binding}" Style="{StaticResource PillButton}" Padding="9,5" Margin="0,0,6,0" Click="VaultEvidenceOpenTranscript_Click"/>
+                                                  <Button Content="Speaker view" Tag="{Binding}" Style="{StaticResource PillButton}" Padding="9,5" Margin="0,0,6,0" Click="VaultEvidenceSpeaker_Click"/>
+                                                  <Button Content="Open meeting" Tag="{Binding}" Style="{StaticResource PillButton}" Padding="9,5" Click="VaultEvidenceMeeting_Click"/>
+                                                </StackPanel>
+                                              </StackPanel>
+                                            </Border>
+                                          </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                      </ItemsControl>
+                                    </StackPanel>
+                                  </Border>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+              </Grid>
+            </Border>
+          </Grid>
+
+          <!-- CATEGORIES MANAGER -->
+          <Grid x:Name="CategoriesView" Grid.Row="1" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource GlassCard}" Padding="18" Margin="0,0,0,12">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                  <TextBlock Text="Categories" FontSize="22" FontWeight="SemiBold"/>
+                  <TextBlock Text="Choose what stays visible on Home. Everything else remains available under More."
+                             Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11" Margin="0,5,0,0"/>
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Style="{StaticResource PrimaryPillButton}"
+                        Content="+  Add Category"
+                        VerticalAlignment="Center"
+                        Padding="16,9"
+                        Click="AddCategory_Click"/>
+              </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Style="{StaticResource GlassCard}" Padding="14">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="10,0,10,10">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.25*"/>
+                    <ColumnDefinition Width="0.55*"/>
+                    <ColumnDefinition Width="0.65*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Category" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="10"/>
+                  <TextBlock Grid.Column="1" Text="Meetings" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="10"/>
+                  <TextBlock Grid.Column="2" Text="Home" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="10"/>
+                  <TextBlock Grid.Column="3" Text="Manage" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="10" Margin="0,0,118,0"/>
+                </Grid>
+
+                <ListBox x:Name="CategoryManagerList"
+                         Grid.Row="1"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         HorizontalContentAlignment="Stretch"
+                         Foreground="{DynamicResource PrimaryTextBrush}">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                              CornerRadius="13" Padding="12" Margin="0,0,0,7">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.25*"/>
+                            <ColumnDefinition Width="0.55*"/>
+                            <ColumnDefinition Width="0.65*"/>
+                            <ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+
+                          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Width="12" Height="12" Background="{Binding Color}" CornerRadius="6" Margin="0,0,10,0"/>
+                            <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                          </StackPanel>
+
+                          <TextBlock Grid.Column="1" Text="{Binding CountText}" Foreground="{DynamicResource SecondaryTextBrush}"
+                                     FontSize="10" VerticalAlignment="Center"/>
+                          <TextBlock Grid.Column="2" Text="{Binding HomeStateLabel}" Foreground="{DynamicResource BlueBrush}"
+                                     FontSize="10" VerticalAlignment="Center"/>
+
+                          <StackPanel Grid.Column="3" Orientation="Horizontal">
+                            <Button Style="{StaticResource PillButton}" Content="↑" Tag="{Binding Name}"
+                                    Width="38" Padding="7,6" Margin="0,0,5,0" Click="MoveCategoryUp_Click"/>
+                            <Button Style="{StaticResource PillButton}" Content="↓" Tag="{Binding Name}"
+                                    Width="38" Padding="7,6" Margin="0,0,5,0" Click="MoveCategoryDown_Click"/>
+                            <Button Style="{StaticResource PillButton}" Content="{Binding PinActionLabel}" Tag="{Binding Name}"
+                                    MinWidth="108" Padding="9,6" Margin="0,0,5,0" Click="ToggleCategoryPinned_Click"/>
+                            <Button Style="{StaticResource PillButton}" Content="Rename" Tag="{Binding Name}"
+                                    Padding="9,6" Margin="0,0,5,0" Click="RenameCategory_Click"/>
+                            <Button Style="{StaticResource DangerPillButton}" Content="Delete" Tag="{Binding Name}"
+                                    Padding="9,6" Click="DeleteCategory_Click"/>
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </Grid>
+            </Border>
+          </Grid>
+          <Grid x:Name="SettingsView" Grid.Row="1" Visibility="Collapsed">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel Margin="0,0,2,20">
+                <Border Style="{StaticResource GlassCard}" Margin="0,0,0,14">
+                  <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Text="Settings" FontSize="22" FontWeight="SemiBold"/>
+                      <TextBlock Text="Personalize Archestro Meeting Vault for this user and organization."
+                                 Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,6,0,0"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Save Settings" Style="{StaticResource PrimaryPillButton}"
+                            Click="SaveCommercialSettings_Click" Padding="18,10"/>
+                  </Grid>
+                </Border>
+                <Border x:Name="SettingsSaveToast"
+                        Style="{StaticResource GlassCard}"
+                        Background="{DynamicResource AccentSoftBrush}"
+                        BorderBrush="{DynamicResource AccentSoftBorderBrush}"
+                        Visibility="Collapsed"
+                        Padding="14,10"
+                        Margin="0,0,0,14">
+                  <TextBlock x:Name="SettingsSaveToastText"
+                             Text="Settings saved."
+                             Foreground="{DynamicResource AccentTextBrush}"
+                             FontWeight="SemiBold"/>
+                </Border>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Border Grid.Column="0" Style="{StaticResource GlassCard}">
+                    <StackPanel>
+                      <TextBlock Text="Profile" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,16"/>
+                      <TextBlock Text="Display name" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBox x:Name="SettingsDisplayName" Style="{StaticResource InputStyle}" MinHeight="44" Margin="0,6,0,14"/>
+                      <TextBlock Text="Organization" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBox x:Name="SettingsOrganization" Style="{StaticResource InputStyle}" MinHeight="44" Margin="0,6,0,14"/>
+                      <TextBlock Text="Job title" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBox x:Name="SettingsJobTitle" Style="{StaticResource InputStyle}" MinHeight="44" Margin="0,6,0,14"/>
+                      <TextBlock Text="Greeting name (optional)" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <TextBox x:Name="SettingsGreetingName" Style="{StaticResource InputStyle}" MinHeight="44" Margin="0,6,0,0"/>
+                    </StackPanel>
+                  </Border>
+                  <Border Grid.Column="2" Style="{StaticResource GlassCard}">
+                    <StackPanel>
+                      <TextBlock Text="Appearance" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,16"/>
+                      <TextBlock Text="Theme" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <ComboBox x:Name="SettingsAppearance" Height="42" Margin="0,6,0,14" Style="{StaticResource ThemeComboBox}" SelectionChanged="SettingsAppearance_SelectionChanged">
+                        <ComboBoxItem Tag="System" Content="System"/><ComboBoxItem Tag="Dark" Content="Dark"/><ComboBoxItem Tag="Light" Content="Light"/>
+                      </ComboBox>
+                      <TextBlock x:Name="ThemeResolvedText"
+                                 Text="System follows Windows and uses the Windows accent."
+                                 Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,20"/>
+                      <TextBlock Text="Preferred language" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <ComboBox x:Name="SettingsPreferredLanguage" Height="42" Margin="0,6,0,14" Style="{StaticResource ThemeComboBox}" SelectionChanged="SettingsPreferredLanguage_SelectionChanged">
+                        <ComboBoxItem Tag="English" Content="English"/><ComboBoxItem Tag="Arabic" Content="Arabic"/>
+                      </ComboBox>
+                      <TextBlock Text="Commercial foundation" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                      <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                              BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,6,0,0">
+                        <TextBlock Text="Core shell ready • Speaker Intelligence is Build 2."
+                                   TextWrapping="Wrap"/>
+                      </Border>
+                    </StackPanel>
+                  </Border>
+                </Grid>
+                <Border Style="{StaticResource GlassCard}" Margin="0,14,0,0" Padding="18">
+                  <StackPanel>
+                    <TextBlock Text="Intelligence Provider" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,14"/>
+                    <TextBlock Text="Provider" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <ComboBox x:Name="SettingsIntelligenceProvider" Height="42" Margin="0,6,0,14"
+                              Style="{StaticResource ThemeComboBox}"
+                              SelectionChanged="SettingsIntelligenceProvider_SelectionChanged">
+                      <ComboBoxItem Tag="Local" Content="Local (default)"/>
+                      <ComboBoxItem Tag="OpenAI" Content="OpenAI"/>
+                      <ComboBoxItem Tag="Gemini" Content="Google Gemini"/>
+                      <ComboBoxItem Tag="DeepSeek" Content="DeepSeek"/>
+                      <ComboBoxItem Tag="Groq" Content="Groq"/>
+                    </ComboBox>
+                    <TextBlock Text="Model" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBox x:Name="SettingsCloudModel" Style="{StaticResource InputStyle}" MinHeight="42" Margin="0,6,0,14"/>
+                    <TextBlock Text="API key (stored encrypted for this Windows user)" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <PasswordBox x:Name="SettingsCloudApiKey" MinHeight="42" Margin="0,6,0,14" Padding="12,8"
+                                 Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource PrimaryTextBrush}"
+                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                    <CheckBox x:Name="SettingsCloudEnabled" Content="Enable cloud acceleration" Margin="0,0,0,8"
+                              Click="SettingsCloudEnabled_Click"/>
+                    <CheckBox x:Name="SettingsCloudFallback" Content="Use Local AI if the selected cloud provider is unavailable" Margin="0,0,0,12"/>
+                    <TextBlock Text="Cloud mode sends selected meeting transcript/evidence text to the chosen provider. Audio is not uploaded by default."
+                               Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                    <TextBlock x:Name="CloudProviderKeyStatus" Text="No API key saved."
+                               Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,10"/>
+                    <WrapPanel>
+                      <Button Content="Test Connection" Style="{StaticResource PrimaryPillButton}" Padding="16,9" Margin="0,0,10,0"
+                              Click="TestCloudProvider_Click"/>
+                      <Button Content="Remove Key" Style="{StaticResource PillButton}" Padding="16,9"
+                              Click="RemoveCloudProviderKey_Click"/>
+                    </WrapPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+
+        </Grid>
+      </Grid>
+
+      <!-- Product attribution -->
+
+
+      <TextBlock x:Name="FooterText"
+                 Grid.Row="2"
+                 Text="© 2026 Archestro. All rights reserved."
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 Foreground="{DynamicResource SecondaryTextBrush}"
+                 FontSize="11.2"
+                 FontWeight="Medium"
+                 Margin="0,2,0,3"/>
+    </Grid>
+  </Grid>
+</Window>
+

@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "sharedCommand": true,
+  "pickerInvocations": 3,
+  "plusButton": "shared picker \u002B import delegate",
+  "primaryButton": "shared picker \u002B import delegate",
+  "cardSurface": "shared picker \u002B import delegate",
+  "supportedDrop": "shared import delegate",
+  "unsupportedExtension": "rejected",
+  "importCountAfterInvalid": 4
+}

@@ -1,0 +1,18 @@
+[
+  {
+    "command": "--rtl-layout-qa",
+    "exit": 0
+  },
+  {
+    "command": "--self-test",
+    "exit": 0
+  },
+  {
+    "command": "--v13.8.9-qa",
+    "exit": 0
+  },
+  {
+    "command": "--v13.8-matrix",
+    "exit": 0
+  }
+]

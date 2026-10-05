@@ -1,0 +1,17 @@
+{
+  "status": "PASS_WITH_OWNER_SMOKE_PENDING",
+  "build": "PASS",
+  "publish": "PASS",
+  "rtlLayoutAndCoordinates": "PASS",
+  "selfTest": "PASS",
+  "v13_8_9": "PASS",
+  "v13_8Matrix": "PASS",
+  "cloudProviderFakeHttpTests": "PASS",
+  "openXmlWordBidiArabicEnglishFixtures": "PASS",
+  "featureNonRemoval": "PASS",
+  "aimsNoTouch": "PASS",
+  "aiSelfTest": "SKIP_NO_TARGET_MODEL_ASSETS",
+  "speakerSelfTest": "SKIP_NO_TARGET_MODEL_ASSETS",
+  "microsoftWordInteractiveRender": "NOT_RUN_REQUIRED_PREFLIGHT_SCRIPT_MISSING",
+  "ownerVisualAcceptance": "PENDING_OWNER_SMOKE"
+}

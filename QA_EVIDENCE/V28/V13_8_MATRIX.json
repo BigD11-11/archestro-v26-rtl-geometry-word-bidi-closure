@@ -1,0 +1,47 @@
+{
+  "status": "PASS",
+  "cases": [
+    {
+      "requestedTheme": "Dark",
+      "resolvedTheme": "Dark",
+      "language": "Arabic",
+      "flowDirection": "RightToLeft",
+      "status": "PASS"
+    },
+    {
+      "requestedTheme": "Dark",
+      "resolvedTheme": "Dark",
+      "language": "English",
+      "flowDirection": "LeftToRight",
+      "status": "PASS"
+    },
+    {
+      "requestedTheme": "Light",
+      "resolvedTheme": "Light",
+      "language": "Arabic",
+      "flowDirection": "RightToLeft",
+      "status": "PASS"
+    },
+    {
+      "requestedTheme": "Light",
+      "resolvedTheme": "Light",
+      "language": "English",
+      "flowDirection": "LeftToRight",
+      "status": "PASS"
+    },
+    {
+      "requestedTheme": "System",
+      "resolvedTheme": "Dark",
+      "language": "Arabic",
+      "flowDirection": "RightToLeft",
+      "status": "PASS"
+    },
+    {
+      "requestedTheme": "System",
+      "resolvedTheme": "Dark",
+      "language": "English",
+      "flowDirection": "LeftToRight",
+      "status": "PASS"
+    }
+  ]
+}

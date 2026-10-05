@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "baselineFileCount": 47,
+  "restoredFileCount": 47,
+  "changedDuringQaCount": 1,
+  "hashMismatchesAfterRestore": 0,
+  "selfTestPassMarkerWasPresentInBaseline": true
+}

@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "oldArabicJsonCurrentRtl": true,
+  "oldEnglishJsonCurrentLtr": true,
+  "incompatibleReportNeedsRefreshAndCannotExport": true,
+  "transcriptHashMismatchCannotExport": true,
+  "oldJsonReexportedWithCurrentWordExporter": true,
+  "historicalDocxBytesUnchanged": true,
+  "reexportedDocxSha256": "F1BAF68BD08398B9DBED833FA89DA5D8363FB8F020A95A13ADDD5678B35E2880"
+}
