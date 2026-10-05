@@ -424,13 +424,17 @@ public static class SelfTestService
         var extractionTimedOut = false;
         try { await timeoutService.AnalyzeMeetingAsync(timeoutMeeting, "General", reportLanguage: "ar"); }
         catch (MeetingReportTimeoutException timeout) { extractionTimedOut = timeout.Stage == "chunk"; }
+        WriteResilienceCheckpoint(root, "extract-timeout-returned");
         RequireFixture(extractionTimedOut && requestClock.Elapsed < TimeSpan.FromSeconds(2), "Local extraction timeout did not terminate within the bounded test window with its stage identity.");
+        WriteResilienceCheckpoint(root, "extract-timeout-asserted");
         RequireFixture(!File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(timeoutMeeting)) &&
                        !File.Exists(Path.Combine(MeetingIntelligenceService.GetReportsFolder(timeoutMeeting), "MeetingReport.txt")),
             "Extraction timeout left a partial report marked Ready.");
+        WriteResilienceCheckpoint(root, "extract-timeout-no-ready-asserted");
         RequireFixture(!Directory.Exists(MeetingIntelligenceService.GetReportsFolder(timeoutMeeting)) ||
                        Directory.GetFiles(MeetingIntelligenceService.GetReportsFolder(timeoutMeeting), "*.docx").Length == 0,
             "Extraction timeout left an exportable partial DOCX.");
+        WriteResilienceCheckpoint(root, "extract-timeout-docx-asserted");
 
         // 2b: overall report deadline wins when each individual request is still within its own bound.
         var overallMeeting = MakeMeeting("resilience-overall-timeout");
@@ -551,6 +555,9 @@ public static class SelfTestService
 
         static string TranscriptHash(string path) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)));
     }
+
+    private static void WriteResilienceCheckpoint(string root, string stage) =>
+        File.AppendAllText(Path.Combine(root, "resilience-checkpoints.txt"), stage + Environment.NewLine);
 
     private sealed class InlineReportProgress : IProgress<MeetingReportProgress>
     {
