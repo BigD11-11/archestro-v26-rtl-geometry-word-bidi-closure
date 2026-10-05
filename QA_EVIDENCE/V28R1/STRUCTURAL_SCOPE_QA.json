@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "baseline": "V26 MainWindow.xaml physical-control and event bindings",
+  "controlNamesBefore": 102,
+  "controlNamesAfter": 109,
+  "controlNamesRemoved": [],
+  "eventBindingsBefore": 47,
+  "eventBindingsAfter": 54,
+  "eventBindingsRemoved": [],
+  "aimsFilesTouched": [],
+  "featuresRemoved": 0
+}

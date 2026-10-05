@@ -1,0 +1,59 @@
+{
+  "status": "PASS",
+  "baseline": "V13.8.8 target-Windows technical PASS",
+  "failures": [],
+  "themeContract": "three-theme semantic sidebar/chrome/logo/action resources \u002B no native child-window chrome",
+  "tickerContract": "continuous timer motion; generic UI refresh must not reset animation position",
+  "transcriptionContract": "bounded automatic whole-file recovery; long meetings avoid silent second full pass",
+  "categoryContract": "classification is advisory; new meetings remain Uncategorized until explicit owner action",
+  "speakerContract": "confirmed vs voice-similarity semantics \u002B independent secondary windows",
+  "intelligenceContract": "customer-facing local brief \u002B rich evidence metadata \u002B no model name in UI",
+  "encodingContract": "UTF-8 child-process output \u002B mojibake repair guard \u002B same-language answer prompt",
+  "localizationContract": "Arabic coverage across main Vault/People/Intelligence flows",
+  "themeAudit": {
+    "Dark": {
+      "ChromeBrush": "#FF0D151F",
+      "ChromeBorderBrush": "#FF3B4654",
+      "LogoPlateBrush": "#FF10243A",
+      "LogoPlateBorderBrush": "#FFD2A04F",
+      "ChatUserBrush": "#FF2A213B",
+      "ChatAssistantBrush": "#FF121C28",
+      "ChatEvidenceBrush": "#FF182536",
+      "DangerSoftBrush": "#FF2B1820",
+      "DangerBorderBrush": "#FF75404B",
+      "DangerTextBrush": "#FFFF8589"
+    },
+    "Light": {
+      "ChromeBrush": "#FFF6F2ED",
+      "ChromeBorderBrush": "#FFC8BFB5",
+      "LogoPlateBrush": "#FF10243A",
+      "LogoPlateBorderBrush": "#FFD2A04F",
+      "ChatUserBrush": "#FFF1E6D5",
+      "ChatAssistantBrush": "#FFF9F5F1",
+      "ChatEvidenceBrush": "#FFEEE8E2",
+      "DangerSoftBrush": "#FFF8E2E2",
+      "DangerBorderBrush": "#FFD8A0A4",
+      "DangerTextBrush": "#FF9E3F47"
+    },
+    "System": {
+      "ChromeBrush": "#FF0D151F",
+      "ChromeBorderBrush": "#FF3B4654",
+      "LogoPlateBrush": "#FF10243A",
+      "LogoPlateBorderBrush": "#FF8A9FBF",
+      "ChatUserBrush": "#FF1A222E",
+      "ChatAssistantBrush": "#FF121C28",
+      "ChatEvidenceBrush": "#FF182536",
+      "DangerSoftBrush": "#FF2B1820",
+      "DangerBorderBrush": "#FF75404B",
+      "DangerTextBrush": "#FFFF8589"
+    }
+  },
+  "evidenceContract": {
+    "MeetingTitle": "QA Meeting",
+    "MeetingDateText": "05 Oct 2026 \u2022 12:27 PM",
+    "MeetingCategory": "Uncategorized",
+    "Speaker": "QA Person",
+    "SpeakerMatchLabel": "Likely match \u2022 74% voice similarity",
+    "TimeText": "00:00:14"
+  }
+}

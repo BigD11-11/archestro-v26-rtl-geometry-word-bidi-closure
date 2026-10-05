@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "openAiCompatibleShape": "PASS",
+  "geminiCompatibleShape": "PASS",
+  "structuredJsonParse": "PASS",
+  "unauthorizedNoRetryAndRedacted": "PASS",
+  "retry429Once": "PASS",
+  "timeout": "PASS",
+  "cancellation": "PASS",
+  "localFallback": "PASS",
+  "telemetryRedacted": "PASS",
+  "cloudDisabledZeroCalls": "PASS",
+  "noConsentZeroCalls": "PASS",
+  "realCredentialsUsed": false,
+  "callsToLiveProviders": 0
+}

@@ -1,0 +1,14 @@
+{
+  "status": "ORIGINALS_RESTORED",
+  "baselineFileCount": 47,
+  "generatedFilesRetained": [
+    "v28-provider-qa-error.txt"
+  ],
+  "originalFilesRestored": [
+    "v13.8.9-qa.json",
+    "self-test-error.txt",
+    "self-test-pass.txt"
+  ],
+  "restoredHashesVerified": true,
+  "note": "Removal of test-generated log files was rejected by local command policy; original files were restored by hash."
+}

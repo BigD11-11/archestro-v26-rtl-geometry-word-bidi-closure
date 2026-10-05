@@ -1,0 +1,9 @@
+Configuration: Release
+Target: net10.0-windows / win-x64
+Build: PASS, 0 errors
+Publish: PASS, 0 errors, 4 warning entries (CS8602 x1; CS0649 x3)
+InformationalVersion: V28.0.0
+Executable: Archestro.MeetingVault.exe
+Executable bytes: 211978871
+Executable SHA-256: 3E0CADFEBFEB2861438D7321AC491F07B9874A37E3891FAEBC2FC6E65DF8C5E1
+Source commit at build: 3a1339d
