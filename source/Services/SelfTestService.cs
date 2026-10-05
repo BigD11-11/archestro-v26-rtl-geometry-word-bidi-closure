@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Diagnostics;
 using Archestro.MeetingVault.Dialogs;
 
 namespace Archestro.MeetingVault.Services;
@@ -264,6 +265,7 @@ public static class SelfTestService
         RunV25FunctionalFixtures(testRoot, folder);
         VerifyLibraryAudioImportCommandAsync().GetAwaiter().GetResult();
         VerifyShortMeetingEvidenceFixture(testRoot);
+        VerifyMeetingReportResilienceAsync(testRoot).GetAwaiter().GetResult();
         VerifyCachedReportFixtures(testRoot);
         VerifySecretProtectionFixture();
 
@@ -276,7 +278,13 @@ public static class SelfTestService
                 status = "PASS", importRouting = "PASS", unsupportedImportNoMutation = "PASS",
                 sparseEightSecondReport = "INSUFFICIENT_EVIDENCE", oldArabicJsonCurrentRtl = "PASS",
                 oldEnglishJsonCurrentLtr = "PASS", incompatibleCacheNeedsRefreshAndCannotExport = "PASS",
-                currentExporterReexportsOldValidJson = "PASS", dpapiCurrentUserRoundTrip = "PASS"
+                currentExporterReexportsOldValidJson = "PASS", dpapiCurrentUserRoundTrip = "PASS",
+                normalLocalReport = "PASS", extractionTimeout = "PASS_NO_PARTIAL_READY",
+                synthesisTimeout = "PASS_EVIDENCE_GROUNDED_FALLBACK", malformedJsonRepairFailure = "PASS_BOUNDED_FALLBACK",
+                languageNormalizationTimeout = "PASS_BLOCKS_INCOMPATIBLE_READY", cancellation = "PASS",
+                windowCloseCancellation = "PASS", cachedReportPreserved = "PASS", transactionalSaveRollback = "PASS",
+                progress66To100 = "PASS",
+                localProviderDefault = "PASS", cloudDisabledNoExternalRequest = "PASS", aims = "NO_TOUCH"
             }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
         }
 
@@ -349,6 +357,205 @@ public static class SelfTestService
             RequireFixture(!File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(meeting)),
                 "Sparse meeting created a cached report or fabricated report sections.");
         }
+    }
+
+    private static async Task VerifyMeetingReportResilienceAsync(string testRoot)
+    {
+        var defaultSettings = new AppSettings();
+        RequireFixture(defaultSettings.IntelligenceProvider.Equals("Local", StringComparison.OrdinalIgnoreCase) &&
+                       !defaultSettings.CloudIntelligenceEnabled,
+            "Local AI is not the default provider with cloud disabled.");
+        var root = Path.Combine(testRoot, "ReportResilience");
+        Directory.CreateDirectory(root);
+        var transcript = Path.Combine(root, "fixture.srt");
+        File.WriteAllText(transcript,
+            "1\n00:00:00,000 --> 00:00:15,000\nتمت مراجعة خطة التشغيل والموارد المطلوبة.\n\n" +
+            "2\n00:00:15,000 --> 00:00:30,000\nاتفق الفريق على متابعة الجدول ومراجعة المخاطر.\n\n" +
+            "3\n00:00:30,000 --> 00:00:45,000\nسيتم تحديث المسودة قبل الاجتماع القادم.\n");
+        MeetingRecord MakeMeeting(string id) => new()
+        {
+            Id = id, FolderPath = Path.Combine(root, id), TranscriptPath = transcript, SrtPath = transcript,
+            Title = "Synthetic resilience fixture", HasExplicitTitle = true,
+            StartLocal = new DateTimeOffset(2026, 10, 5, 9, 0, 0, TimeSpan.FromHours(3)), DurationSeconds = 60
+        };
+        static string ExtractionJson(string text = "تمت مراجعة خطة التشغيل والموارد المطلوبة.") =>
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                keyPoints = new[] { new { text, evidence = new[] { "E0001" } } },
+                topics = Array.Empty<object>(), decisions = Array.Empty<object>(), actionItems = Array.Empty<object>(),
+                commitments = Array.Empty<object>(), deadlines = Array.Empty<object>(), risks = Array.Empty<object>(),
+                openItems = Array.Empty<object>(), commercialPoints = Array.Empty<object>(), importantMoments = Array.Empty<object>(),
+                participantContributions = Array.Empty<object>(), followUp = Array.Empty<object>()
+            });
+        static string SynthesisJson(string summary = "راجع الفريق خطة التشغيل والموارد المطلوبة، واتفق على متابعة الجدول.") =>
+            System.Text.Json.JsonSerializer.Serialize(new { executiveSummary = summary, keyPoints = Array.Empty<object>() });
+        MeetingIntelligenceService Service(MeetingRecord meeting,
+            Func<string, string, int, CancellationToken, int?, bool, Task<string>> generate,
+            TimeSpan? requestTimeout = null, TimeSpan? overallTimeout = null) =>
+            new(new AppSettings(), new MeetingRepository(Path.Combine(root, meeting.Id + ".db")),
+                generate, requestTimeout ?? TimeSpan.FromSeconds(2), overallTimeout ?? TimeSpan.FromSeconds(5));
+        static Task<string> FastFixture(string system, string user, int tokens, CancellationToken token, int? context, bool json) =>
+            Task.FromResult(system.Contains("Create a concise customer-facing", StringComparison.Ordinal)
+                ? SynthesisJson()
+                : ExtractionJson());
+
+        // 1, 10: normal Local report is durable and progress passes merge, validation and synthesis.
+        var normalMeeting = MakeMeeting("resilience-normal");
+        var normal = Service(normalMeeting, FastFixture);
+        var progress = new InlineReportProgress();
+        var report = await normal.AnalyzeMeetingAsync(normalMeeting, "General", progress: progress, reportLanguage: "ar");
+        var normalPath = MeetingIntelligenceService.GetCanonicalReportJsonPath(normalMeeting);
+        RequireFixture(File.Exists(normalPath) && normal.LoadReport(normalMeeting) is not null && report.ReportLanguage == "ar",
+            "Normal Local report did not save and reload as Arabic.");
+        RequireFixture(progress.Values.Select(x => x.Percent).Contains(66) && progress.Values.Any(x => x.Percent == 70) &&
+                       progress.Values.Any(x => x.Percent == 76) && progress.Values.Any(x => x.Percent == 95) && progress.Values.Any(x => x.Percent == 100),
+            "Report progress did not pass merge, validation, synthesis, save and durable completion.");
+        RequireFixture(progress.Values.FindIndex(x => x.Percent == 66) < progress.Values.FindIndex(x => x.Percent == 70) &&
+                       progress.Values.FindIndex(x => x.Percent == 70) < progress.Values.FindIndex(x => x.Percent == 76) &&
+                       progress.Values.FindIndex(x => x.Percent == 95) < progress.Values.FindIndex(x => x.Percent == 100),
+            "Report progress stages were emitted out of order.");
+
+        // 2: extraction request timeout is typed, bounded, and does not leave a partial Ready file.
+        var timeoutMeeting = MakeMeeting("resilience-extract-timeout");
+        var timeoutService = Service(timeoutMeeting,
+            (_, _, _, token, _, _) => Task.Delay(Timeout.Infinite, token).ContinueWith<string>(_ => "", token),
+            TimeSpan.FromMilliseconds(60), TimeSpan.FromSeconds(1));
+        var requestClock = Stopwatch.StartNew();
+        var extractionTimedOut = false;
+        try { await timeoutService.AnalyzeMeetingAsync(timeoutMeeting, "General", reportLanguage: "ar"); }
+        catch (MeetingReportTimeoutException timeout) { extractionTimedOut = timeout.Stage == "chunk"; }
+        RequireFixture(extractionTimedOut && requestClock.Elapsed < TimeSpan.FromSeconds(2), "Local extraction timeout did not terminate within the bounded test window with its stage identity.");
+        RequireFixture(!File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(timeoutMeeting)) &&
+                       !File.Exists(Path.Combine(MeetingIntelligenceService.GetReportsFolder(timeoutMeeting), "MeetingReport.txt")),
+            "Extraction timeout left a partial report marked Ready.");
+        RequireFixture(!Directory.Exists(MeetingIntelligenceService.GetReportsFolder(timeoutMeeting)) ||
+                       Directory.GetFiles(MeetingIntelligenceService.GetReportsFolder(timeoutMeeting), "*.docx").Length == 0,
+            "Extraction timeout left an exportable partial DOCX.");
+
+        // 2b: overall report deadline wins when each individual request is still within its own bound.
+        var overallMeeting = MakeMeeting("resilience-overall-timeout");
+        var overallService = Service(overallMeeting,
+            (_, _, _, token, _, _) => Task.Delay(Timeout.Infinite, token).ContinueWith<string>(_ => "", token),
+            TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(60));
+        var overallClock = Stopwatch.StartNew();
+        var overallTimedOut = false;
+        try { await overallService.AnalyzeMeetingAsync(overallMeeting, "General", reportLanguage: "ar"); }
+        catch (MeetingReportTimeoutException timeout) { overallTimedOut = timeout.Stage == "overall"; }
+        RequireFixture(overallTimedOut && overallClock.Elapsed < TimeSpan.FromSeconds(2) &&
+                       !File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(overallMeeting)),
+            "Overall Meeting Report timeout was not bounded or stage-identifiable.");
+
+        // 3: synthesis timeout preserves validated extraction via evidence-grounded deterministic summary.
+        var fallbackMeeting = MakeMeeting("resilience-synthesis-timeout");
+        var fallbackService = Service(fallbackMeeting, (system, user, tokens, token, context, json) =>
+            system.Contains("Create a concise customer-facing", StringComparison.Ordinal)
+                ? Task.Delay(Timeout.Infinite, token).ContinueWith<string>(_ => "", token)
+                : Task.FromResult(ExtractionJson()), TimeSpan.FromMilliseconds(60), TimeSpan.FromSeconds(2));
+        var fallbackProgress = new InlineReportProgress();
+        var fallback = await fallbackService.AnalyzeMeetingAsync(fallbackMeeting, "General", progress: fallbackProgress, reportLanguage: "ar");
+        RequireFixture(File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(fallbackMeeting)) &&
+                       fallback.ExecutiveSummary.Contains("خطة التشغيل", StringComparison.Ordinal) && fallbackProgress.Values.Any(x => x.Percent == 82),
+            "Synthesis timeout did not finish from validated evidence using the distinct fallback stage.");
+
+        // 4: malformed synthesis JSON gets one repair attempt; repair failure remains bounded and falls back.
+        var malformedMeeting = MakeMeeting("resilience-malformed-synthesis");
+        var synthesisCalls = 0;
+        var malformedService = Service(malformedMeeting, (system, user, tokens, token, context, json) =>
+        {
+            if (system.Contains("Create a concise customer-facing", StringComparison.Ordinal))
+            {
+                synthesisCalls++;
+                return Task.FromResult("not json");
+            }
+            if (system.StartsWith("Repair the supplied", StringComparison.Ordinal))
+                return Task.FromException<string>(new InvalidOperationException("synthetic repair failure"));
+            return Task.FromResult(ExtractionJson());
+        });
+        var malformed = await malformedService.AnalyzeMeetingAsync(malformedMeeting, "General", reportLanguage: "ar");
+        RequireFixture(synthesisCalls == 1 && !string.IsNullOrWhiteSpace(malformed.ExecutiveSummary) &&
+                       File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(malformedMeeting)),
+            "Malformed synthesis plus one failed repair did not use the bounded deterministic fallback.");
+
+        // 5: failed Arabic language normalization must never write an incompatible Ready report.
+        var languageMeeting = MakeMeeting("resilience-language-timeout");
+        var languageService = Service(languageMeeting, (system, user, tokens, token, context, json) =>
+        {
+            if (system.Contains("Create a concise customer-facing", StringComparison.Ordinal))
+                return Task.FromResult(SynthesisJson("We reviewed the operational plan and agreed to follow the schedule."));
+            if (system.Contains("language QA", StringComparison.Ordinal))
+                return Task.Delay(Timeout.Infinite, token).ContinueWith<string>(_ => "", token);
+            return Task.FromResult(ExtractionJson());
+        }, TimeSpan.FromMilliseconds(60), TimeSpan.FromSeconds(2));
+        var languageBlocked = false;
+        try { await languageService.AnalyzeMeetingAsync(languageMeeting, "General", reportLanguage: "ar"); }
+        catch (ReportLanguageValidationException) { languageBlocked = true; }
+        RequireFixture(languageBlocked && !File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(languageMeeting)),
+            "Language-normalization timeout saved an incompatible Arabic report as Ready.");
+
+        // 6, 8, 9: user cancellation is terminal and leaves the existing valid cached report byte-for-byte intact.
+        var cancelMeeting = MakeMeeting("resilience-user-cancel");
+        var cancelService = Service(cancelMeeting, (system, user, tokens, token, context, json) =>
+            Task.Delay(Timeout.Infinite, token).ContinueWith<string>(_ => "", token), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5));
+        var cached = new MeetingIntelligenceReport
+        {
+            MeetingId = cancelMeeting.Id, ReportLanguage = "ar", ExecutiveSummary = "ملخص محفوظ صالح.",
+            SourceTranscriptSha256 = TranscriptHash(transcript), EvidenceIndex = new() { new EvidenceRef { Id = "E0001", Text = "تمت مراجعة خطة التشغيل والموارد المطلوبة." } }
+        };
+        var cachedPath = MeetingIntelligenceService.GetCanonicalReportJsonPath(cancelMeeting);
+        Directory.CreateDirectory(Path.GetDirectoryName(cachedPath)!);
+        File.WriteAllText(cachedPath, System.Text.Json.JsonSerializer.Serialize(cached));
+        var cachedHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(cachedPath)));
+        using (var cts = new CancellationTokenSource())
+        {
+            var running = cancelService.AnalyzeMeetingAsync(cancelMeeting, "General", cts.Token, reportLanguage: "ar");
+            await Task.Delay(60);
+            cts.Cancel();
+            var cancelled = false;
+            try { await running; } catch (OperationCanceledException) { cancelled = true; }
+            RequireFixture(cancelled, "User cancellation did not terminate active report generation.");
+        }
+        RequireFixture(cachedHash == Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(cachedPath))),
+            "Failed/cancelled generation overwrote the existing valid cached report.");
+
+        // 9: a failure partway through the multi-file save restores the prior cache and leaves no partial Ready report.
+        var saveFailureMeeting = MakeMeeting("resilience-save-rollback");
+        var saveFailureService = Service(saveFailureMeeting, FastFixture);
+        var saveCanonical = MeetingIntelligenceService.GetCanonicalReportJsonPath(saveFailureMeeting);
+        var saveLegacy = Path.Combine(saveFailureMeeting.FolderPath, "11_Intelligence_Report.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(saveCanonical)!);
+        Directory.CreateDirectory(saveFailureMeeting.FolderPath);
+        File.WriteAllText(saveCanonical, "{\"MeetingId\":\"resilience-save-rollback\",\"ReportLanguage\":\"ar\",\"ExecutiveSummary\":\"ملخص محفوظ صالح.\"}");
+        var saveBeforeHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(saveCanonical)));
+        Directory.CreateDirectory(saveLegacy); // prevents the second staged output from committing
+        var saveFailed = false;
+        try { await saveFailureService.AnalyzeMeetingAsync(saveFailureMeeting, "General", reportLanguage: "ar"); }
+        catch (IOException) { saveFailed = true; }
+        var reportsFolder = MeetingIntelligenceService.GetReportsFolder(saveFailureMeeting);
+        RequireFixture(saveFailed && saveBeforeHash == Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(saveCanonical))) &&
+                       Directory.Exists(saveLegacy) && !File.Exists(Path.Combine(reportsFolder, "MeetingReport.txt")) &&
+                       Directory.GetFiles(reportsFolder, "*.v28r1-*.tmp").Length == 0 && Directory.GetFiles(reportsFolder, "*.docx").Length == 0,
+            "Failed multi-file save did not restore the valid cache and remove partial report outputs.");
+
+        // 7: the close-window cancellation path cancels the owned report operation.
+        var window = new IntelligenceWindow(cancelMeeting, cancelService, layoutQa: true)
+        {
+            Left = -3000, Top = -3000, ShowInTaskbar = false, ShowActivated = false
+        };
+        using var closeCts = new CancellationTokenSource();
+        var tokenAfterClose = closeCts.Token;
+        typeof(IntelligenceWindow).GetField("_reportGenerationCts", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(window, closeCts);
+        window.Show();
+        window.Close();
+        RequireFixture(tokenAfterClose.IsCancellationRequested, "Closing the report window did not cancel its active report CTS.");
+
+        static string TranscriptHash(string path) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)));
+    }
+
+    private sealed class InlineReportProgress : IProgress<MeetingReportProgress>
+    {
+        public List<MeetingReportProgress> Values { get; } = new();
+        public void Report(MeetingReportProgress value) => Values.Add(value);
     }
 
     private static void VerifyCachedReportFixtures(string testRoot)

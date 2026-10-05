@@ -1,4 +1,10 @@
-﻿using System.Windows;
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Archestro.MeetingVault.Models;
+using System.Windows;
 using Archestro.MeetingVault.Services;
 
 namespace Archestro.MeetingVault;
@@ -45,6 +51,22 @@ public partial class App : Application
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(errorPath))!);
                 File.WriteAllText(errorPath, ex.ToString());
                 Environment.ExitCode = 30;
+            }
+            Shutdown(Environment.ExitCode);
+            return;
+        }
+
+        if (e.Args.Contains("--v28r1-local-report-qa", StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                Task.Run(RunV28R1LocalReportQaAsync).GetAwaiter().GetResult();
+                Environment.ExitCode = 0;
+            }
+            catch (Exception ex)
+            {
+                WriteV28R1LocalReportFailure(ex);
+                Environment.ExitCode = ex is MeetingReportTimeoutException ? 31 : 32;
             }
             Shutdown(Environment.ExitCode);
             return;
@@ -248,6 +270,120 @@ public partial class App : Application
         var window = new MainWindow();
         MainWindow = window;
         window.Show();
+    }
+
+    private static async Task RunV28R1LocalReportQaAsync()
+    {
+        var outputPath = Environment.GetEnvironmentVariable("ARCHESTRO_V28R1_LOCAL_REPORT_OUTPUT");
+        var meetingFolderHash = Environment.GetEnvironmentVariable("ARCHESTRO_V28R1_MEETING_FOLDER_SHA256");
+        var language = Environment.GetEnvironmentVariable("ARCHESTRO_V28R1_REPORT_LANGUAGE");
+        if (string.IsNullOrWhiteSpace(outputPath) || string.IsNullOrWhiteSpace(meetingFolderHash) || language is not ("ar" or "en"))
+            throw new InvalidOperationException("V28R1 local report QA inputs are incomplete.");
+
+        var settings = File.Exists(AppPaths.Settings)
+            ? JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(AppPaths.Settings)) ?? new AppSettings()
+            : new AppSettings();
+        if (!settings.IntelligenceProvider.Equals("Local", StringComparison.OrdinalIgnoreCase) || settings.CloudIntelligenceEnabled)
+            throw new InvalidOperationException("V28R1 Local smoke requires Local provider with cloud disabled.");
+
+        var repo = new MeetingRepository();
+        var matches = repo.Recent(10000).Where(meeting => Directory.Exists(meeting.FolderPath) &&
+            ComputeFolderIdentity(meeting.FolderPath).Equals(meetingFolderHash, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (matches.Count != 1)
+            throw new InvalidOperationException("V28R1 local report QA did not resolve exactly one meeting from its safe folder hash.");
+        var meeting = matches[0];
+        var diagnosticPath = Path.Combine(AppPaths.Logs, "meeting-report-stage-diagnostics.log");
+        var diagnosticStart = File.Exists(diagnosticPath) ? new FileInfo(diagnosticPath).Length : 0;
+        var progressRows = new List<V28R1ProgressSample>();
+        var progressGate = new object();
+        var progress = new CallbackProgress<MeetingReportProgress>(value =>
+        {
+            lock (progressGate)
+                progressRows.Add(new(value.Percent, value.Stage, DateTimeOffset.UtcNow));
+        });
+        var service = new MeetingIntelligenceService(settings, repo);
+        var elapsed = Stopwatch.StartNew();
+        var report = await service.AnalyzeMeetingAsync(meeting, "General", CancellationToken.None, progress, language).ConfigureAwait(false);
+        elapsed.Stop();
+        var reloaded = service.LoadReport(meeting);
+        if (reloaded is null || !MeetingIntelligenceService.IsReportLanguageCompatible(reloaded, language))
+            throw new InvalidOperationException("V28R1 report did not reload and pass language validation.");
+        var docxPath = MeetingReportWordExporter.Export(meeting, reloaded);
+        var diagnostics = ReadDiagnosticTail(diagnosticPath, diagnosticStart);
+        var requestDurations = ParseLocalRequestDurations(diagnostics);
+        var result = new
+        {
+            status = "PASS",
+            provider = "Local",
+            model = report.Model,
+            language,
+            durationSeconds = Math.Max(0, meeting.DurationSeconds),
+            evidenceLineCount = report.EvidenceIndex.Count,
+            elapsedTotalMs = elapsed.ElapsedMilliseconds,
+            extractionRequestMs = requestDurations.Where(x => x.Stage.StartsWith("chunk", StringComparison.Ordinal)).Sum(x => x.ElapsedMs),
+            synthesisRequestMs = requestDurations.Where(x => x.Stage.StartsWith("synthesis", StringComparison.Ordinal)).Sum(x => x.ElapsedMs),
+            synthesisFallbackUsed = diagnostics.Contains("stage=synthesis-fallback", StringComparison.Ordinal),
+            progress = progressRows,
+            progressPassed66 = progressRows.Any(x => x.Percent > 66),
+            savedAndReloaded = true,
+            languageValidation = true,
+            reportItemCount = report.KeyPoints.Count + report.Topics.Count + report.Decisions.Count + report.ActionItems.Count + report.Risks.Count + report.FollowUp.Count,
+            reportSha256 = HashFileSha256(MeetingIntelligenceService.GetCanonicalReportJsonPath(meeting)),
+            docxBytes = new FileInfo(docxPath).Length,
+            docxSha256 = HashFileSha256(docxPath),
+            externalNetworkUsed = false
+        };
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
+        File.WriteAllText(outputPath, JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+    }
+
+    private static void WriteV28R1LocalReportFailure(Exception exception)
+    {
+        var outputPath = Environment.GetEnvironmentVariable("ARCHESTRO_V28R1_LOCAL_REPORT_OUTPUT");
+        if (string.IsNullOrWhiteSpace(outputPath)) return;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
+            var timeout = exception as MeetingReportTimeoutException;
+            File.WriteAllText(outputPath, JsonSerializer.Serialize(new
+            {
+                status = timeout is null ? "FAIL" : "TIMEOUT",
+                errorType = exception.GetType().Name,
+                timeoutStage = timeout?.Stage,
+                externalNetworkUsed = false
+            }, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+        }
+        catch { }
+    }
+
+    private static string ComputeFolderIdentity(string folder) => Convert.ToHexString(SHA256.HashData(
+        Encoding.UTF8.GetBytes(Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar).ToLowerInvariant())));
+
+    private static string HashFileSha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(SHA256.HashData(stream));
+    }
+
+    private static string ReadDiagnosticTail(string path, long start)
+    {
+        if (!File.Exists(path)) return string.Empty;
+        using var stream = File.OpenRead(path);
+        stream.Position = Math.Min(start, stream.Length);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        return reader.ReadToEnd();
+    }
+
+    private static List<(string Stage, long ElapsedMs)> ParseLocalRequestDurations(string diagnostics) =>
+        Regex.Matches(diagnostics, @"stage=model-request-complete; stage=([^;]+); elapsedMs=(\d+)")
+            .Cast<Match>()
+            .Select(match => (match.Groups[1].Value, long.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture)))
+            .ToList();
+
+    private sealed record V28R1ProgressSample(int Percent, string Stage, DateTimeOffset TimestampUtc);
+    private sealed class CallbackProgress<T>(Action<T> callback) : IProgress<T>
+    {
+        public void Report(T value) => callback(value);
     }
 
     private static void RunV1389Qa()

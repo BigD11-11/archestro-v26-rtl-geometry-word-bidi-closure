@@ -2,9 +2,17 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Security.Cryptography;
+using System.Diagnostics;
 using Archestro.MeetingVault.Models;
 
 namespace Archestro.MeetingVault.Services;
+
+public sealed class MeetingReportTimeoutException : TimeoutException
+{
+    public string Stage { get; }
+
+    public MeetingReportTimeoutException(string stage, string message) : base(message) => Stage = stage;
+}
 
 public sealed class MeetingIntelligenceService
 {
@@ -13,25 +21,62 @@ public sealed class MeetingIntelligenceService
     private readonly LocalLlmService _llm;
     private readonly IntelligenceProviderRouter _providerRouter;
     private readonly SpeakerTranscriptService _speakerTranscripts = new();
+    private static readonly object ReportDiagnosticGate = new();
+    private readonly Func<string, string, int, CancellationToken, int?, bool, Task<string>>? _reportModelOverride;
+    private readonly TimeSpan _reportRequestTimeout;
+    private readonly TimeSpan _reportOverallTimeout;
 
     public MeetingIntelligenceService(AppSettings settings, MeetingRepository repo)
+        : this(settings, repo, null, null, null) { }
+
+    internal MeetingIntelligenceService(
+        AppSettings settings,
+        MeetingRepository repo,
+        Func<string, string, int, CancellationToken, int?, bool, Task<string>>? reportModelOverride,
+        TimeSpan? reportRequestTimeout,
+        TimeSpan? reportOverallTimeout)
     {
         _settings = settings;
         _repo = repo;
         _llm = new LocalLlmService(settings);
         _providerRouter = new IntelligenceProviderRouter(settings, new LocalIntelligenceProvider(_llm));
+        _reportModelOverride = reportModelOverride;
+        _reportRequestTimeout = reportRequestTimeout ?? TimeSpan.FromSeconds(180);
+        _reportOverallTimeout = reportOverallTimeout ?? TimeSpan.FromMinutes(8);
     }
 
     public LocalLlmService LocalModel => _llm;
 
-    private Task<string> GenerateWithProviderAsync(
+    private async Task<string> GenerateWithProviderAsync(
         string systemPrompt, string userPrompt, int maxTokens, CancellationToken cancellationToken,
-        int? contextTokensOverride = null, bool preferJsonObject = false)
+        int? contextTokensOverride = null, bool preferJsonObject = false, string diagnosticStage = "report")
     {
-        if (!_providerRouter.IsCloudSelected)
-            return _llm.GenerateAsync(systemPrompt, userPrompt, maxTokens, cancellationToken,
-                contextTokensOverride, preferJsonObject);
-        return GenerateCloudAsync(systemPrompt, userPrompt, maxTokens, cancellationToken, preferJsonObject, contextTokensOverride);
+        using var requestTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        requestTimeout.CancelAfter(_reportRequestTimeout);
+        var clock = Stopwatch.StartNew();
+        var provider = _reportModelOverride is not null || !_providerRouter.IsCloudSelected ? "local" : "cloud";
+        WriteReportDiagnostic("model-request-start", $"stage={diagnosticStage}; provider={provider}; maxTokens={maxTokens}");
+        try
+        {
+            var result = _reportModelOverride is not null
+                ? await _reportModelOverride(systemPrompt, userPrompt, maxTokens, requestTimeout.Token, contextTokensOverride, preferJsonObject).ConfigureAwait(false)
+                : !_providerRouter.IsCloudSelected
+                    ? await _llm.GenerateAsync(systemPrompt, userPrompt, maxTokens, requestTimeout.Token,
+                        contextTokensOverride, preferJsonObject).ConfigureAwait(false)
+                    : await GenerateCloudAsync(systemPrompt, userPrompt, maxTokens, requestTimeout.Token, preferJsonObject, contextTokensOverride).ConfigureAwait(false);
+            WriteReportDiagnostic("model-request-complete", $"stage={diagnosticStage}; elapsedMs={clock.ElapsedMilliseconds}; responseCharacters={result.Length}");
+            return result;
+        }
+        catch (OperationCanceledException) when (requestTimeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            WriteReportDiagnostic("model-request-timeout", $"stage={diagnosticStage}; elapsedMs={clock.ElapsedMilliseconds}; timeoutSeconds={_reportRequestTimeout.TotalSeconds:0}");
+            throw new MeetingReportTimeoutException(diagnosticStage, "Local AI report request exceeded its bounded time limit.");
+        }
+        catch (Exception ex)
+        {
+            WriteReportDiagnostic("model-request-failed", $"stage={diagnosticStage}; elapsedMs={clock.ElapsedMilliseconds}; errorType={ex.GetType().Name}");
+            throw;
+        }
     }
 
     private async Task<string> GenerateCloudAsync(string systemPrompt, string userPrompt, int maxTokens,
@@ -66,6 +111,27 @@ public sealed class MeetingIntelligenceService
         IProgress<MeetingReportProgress>? progress = null,
         string? reportLanguage = null)
     {
+        using var reportTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        reportTimeout.CancelAfter(_reportOverallTimeout);
+        try
+        {
+            return await AnalyzeMeetingCoreAsync(meeting, mode, reportTimeout.Token, progress, reportLanguage).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (reportTimeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            WriteReportDiagnostic("report-timeout", $"timeoutSeconds={_reportOverallTimeout.TotalSeconds:0}");
+            throw new MeetingReportTimeoutException("overall", "Meeting report exceeded its bounded completion time. Retry, or use a shorter meeting selection.");
+        }
+    }
+
+    private async Task<MeetingIntelligenceReport> AnalyzeMeetingCoreAsync(
+        MeetingRecord meeting,
+        string mode,
+        CancellationToken cancellationToken,
+        IProgress<MeetingReportProgress>? progress,
+        string? reportLanguage)
+    {
+        var reportClock = Stopwatch.StartNew();
         var evidence = BuildMeetingEvidence(meeting, maxLines: 900);
         if (evidence.Count == 0)
             throw new InvalidOperationException(
@@ -91,6 +157,7 @@ public sealed class MeetingIntelligenceService
         });
 
         var chunks = ChunkEvidence(evidence, maxItems: 42, maxChars: 11000);
+        WriteReportDiagnostic("extract-start", $"durationSeconds={Math.Max(0, meeting.DurationSeconds):0}; evidenceLines={evidence.Count}; chunkCount={chunks.Count}; provider={(_providerRouter.IsCloudSelected ? "cloud" : "local")}");
         var extractedByChunk = new ReportDto?[chunks.Count];
         var completedChunks = 0;
         var maxExtractionConcurrency = _providerRouter.IsCloudSelected ? Math.Min(3, chunks.Count) : 1;
@@ -108,6 +175,7 @@ public sealed class MeetingIntelligenceService
                     languageRule,
                     cancellationToken).ConfigureAwait(false);
                 extractedByChunk[i] = dto;
+                WriteReportDiagnostic("extract-chunk-complete", $"chunk={i + 1}/{chunks.Count}; itemCount={(dto is null ? 0 : EnumerateDtoItems(dto).Count())}");
                 var completed = Interlocked.Increment(ref completedChunks);
                 var percent = 10 + (int)Math.Round((completed / Math.Max(1d, chunks.Count)) * 52d);
                 progress?.Report(new MeetingReportProgress
@@ -123,6 +191,7 @@ public sealed class MeetingIntelligenceService
         }).ToArray();
         await Task.WhenAll(extractionTasks).ConfigureAwait(false);
         var extracted = extractedByChunk.Where(dto => dto is not null).Cast<ReportDto>().ToList();
+        WriteReportDiagnostic("extract-complete", $"elapsedMs={reportClock.ElapsedMilliseconds}; requests={completedChunks}; completedDtos={extracted.Count}; evidenceLines={evidence.Count}; chunkCount={chunks.Count}");
 
 
         if (extracted.Count == 0)
@@ -134,28 +203,57 @@ public sealed class MeetingIntelligenceService
         progress?.Report(new MeetingReportProgress
         {
             Percent = 66,
-            Stage = language == "ar" ? "استخراج القرارات والمهام" : "Consolidating decisions and actions",
+            Stage = language == "ar" ? "دمج نتائج الاستخراج" : "Merging extracted results",
             Detail = language == "ar" ? "دمج النتائج وإزالة التكرار" : "Merging findings and removing duplicates"
         });
 
+        var mergeClock = Stopwatch.StartNew();
+        WriteReportDiagnostic("merge-enter", $"dtoCount={extracted.Count}");
         var aggregate = MergeReportDtos(extracted);
+        WriteReportDiagnostic("merge-complete", $"elapsedMs={mergeClock.ElapsedMilliseconds}; itemCount={EnumerateDtoItems(aggregate).Count()}");
+        progress?.Report(new MeetingReportProgress
+        {
+            Percent = 70,
+            Stage = language == "ar" ? "التحقق من الأدلة" : "Validating evidence",
+            Detail = language == "ar" ? "مراجعة ربط النتائج بالنص" : "Checking findings against the transcript"
+        });
+        var validateClock = Stopwatch.StartNew();
+        WriteReportDiagnostic("validate-enter", $"itemCount={EnumerateDtoItems(aggregate).Count()}; evidenceLines={evidence.Count}");
+        WriteReportDiagnostic("validate-evidence-start", $"itemCount={EnumerateDtoItems(aggregate).Count()}");
         ValidateDtoEvidence(aggregate, evidence);
+        WriteReportDiagnostic("validate-evidence-complete", $"elapsedMs={validateClock.ElapsedMilliseconds}; itemCount={EnumerateDtoItems(aggregate).Count()}");
+        WriteReportDiagnostic("validate-participant-owners-start", $"participantCount={aggregate.ParticipantContributions?.Count ?? 0}");
         ValidateParticipantOwners(aggregate, evidence);
+        WriteReportDiagnostic("validate-participant-owners-complete", $"elapsedMs={validateClock.ElapsedMilliseconds}; participantCount={aggregate.ParticipantContributions?.Count ?? 0}");
+        progress?.Report(new MeetingReportProgress
+        {
+            Percent = 72,
+            Stage = language == "ar" ? "اكتمل التحقق من الأدلة" : "Evidence validation complete",
+            Detail = language == "ar" ? "النتائج مرتبطة بمقاطع النص المعتمدة" : "Findings are linked to verified transcript evidence"
+        });
 
         progress?.Report(new MeetingReportProgress
         {
             Percent = 76,
-            Stage = language == "ar" ? "ربط الأدلة والمتحدثين" : "Linking evidence and speakers",
-            Detail = language == "ar" ? "التحقق من التوقيتات والمتحدثين" : "Validating timestamps and participant attribution"
+            Stage = language == "ar" ? "صياغة التقرير" : "Synthesizing report",
+            Detail = language == "ar" ? "إعداد الملخص من النتائج المؤكدة" : "Preparing a summary from validated findings"
         });
 
-        var synthesized = await SynthesizeReportAsync(
+        WriteReportDiagnostic("synthesis-enter", $"elapsedMs={reportClock.ElapsedMilliseconds}; itemCount={EnumerateDtoItems(aggregate).Count()}");
+        var synthesis = await SynthesizeReportAsync(
             meeting,
             aggregate,
             NormalizeMode(mode),
             language,
             languageRule,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            progress).ConfigureAwait(false);
+        var synthesized = synthesis.Report;
+        WriteReportDiagnostic("synthesis-complete", $"elapsedMs={reportClock.ElapsedMilliseconds}; summaryCharacters={synthesized.ExecutiveSummary?.Length ?? 0}; keyPointCount={synthesized.KeyPoints?.Count ?? 0}");
+        if (synthesis.FallbackUsed)
+        {
+            WriteReportDiagnostic("synthesis-fallback", "fallbackUsed=true; source=validated-extraction");
+        }
         if (!string.IsNullOrWhiteSpace(synthesized.ExecutiveSummary))
             aggregate.ExecutiveSummary = synthesized.ExecutiveSummary;
         if (synthesized.KeyPoints?.Count > 0)
@@ -168,6 +266,7 @@ public sealed class MeetingIntelligenceService
         {
             for (var languagePass = 1; languagePass <= 1 && ReportNeedsLanguageRepair(aggregate, language); languagePass++)
             {
+                WriteReportDiagnostic("language-normalize-start", $"pass={languagePass}; itemCount={EnumerateDtoItems(aggregate).Count()}");
                 progress?.Report(new MeetingReportProgress
                 {
                     Percent = languagePass == 1 ? 82 : 84,
@@ -181,6 +280,7 @@ public sealed class MeetingIntelligenceService
                             : "Running a final language-quality pass")
                 });
                 aggregate = await NormalizeReportLanguageAsync(aggregate, language, cancellationToken).ConfigureAwait(false);
+                WriteReportDiagnostic("language-normalize-complete", $"pass={languagePass}; elapsedMs={reportClock.ElapsedMilliseconds}; itemCount={EnumerateDtoItems(aggregate).Count()}");
                 ValidateDtoEvidence(aggregate, evidence);
                 ValidateParticipantOwners(aggregate, evidence);
             }
@@ -240,7 +340,17 @@ public sealed class MeetingIntelligenceService
             Detail = language == "ar" ? "حفظ النسخة المنظمة محليًا" : "Saving the structured local report"
         });
 
-        SaveReport(meeting, report);
+        WriteReportDiagnostic("save-start", $"elapsedMs={reportClock.ElapsedMilliseconds}; language={language}; itemCount={EnumerateDtoItems(aggregate).Count()}");
+        try
+        {
+            SaveReport(meeting, report);
+        }
+        catch (Exception ex)
+        {
+            WriteReportDiagnostic("save-failed", $"elapsedMs={reportClock.ElapsedMilliseconds}; errorType={ex.GetType().Name}");
+            throw;
+        }
+        WriteReportDiagnostic("save-complete", $"elapsedMs={reportClock.ElapsedMilliseconds}; language={language}; reportVersion={report.ReportVersion}");
 
         progress?.Report(new MeetingReportProgress
         {
@@ -323,17 +433,18 @@ Evidence:
             "chunk").ConfigureAwait(false);
     }
 
-    private async Task<ReportDto> SynthesizeReportAsync(
+    private async Task<(ReportDto Report, bool FallbackUsed)> SynthesizeReportAsync(
         MeetingRecord meeting,
         ReportDto aggregate,
         string mode,
         string language,
         string languageRule,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<MeetingReportProgress>? progress)
     {
         var facts = FormatAggregatedFacts(aggregate);
         if (string.IsNullOrWhiteSpace(facts))
-            return aggregate;
+            return (aggregate, false);
 
         var system = $$"""
 You are Archestro Meeting Intelligence. Create a concise customer-facing executive meeting summary from VERIFIED extracted facts only.
@@ -356,20 +467,32 @@ Verified facts:
 {{facts}}
 """;
 
-        var dto = await GenerateReportDtoResilientAsync(
-            system,
-            user,
-            maxTokens: 520,
-            contextTokens: 4096,
-            cancellationToken,
-            "synthesis").ConfigureAwait(false);
-
-        if (dto is null)
+        try
         {
-            aggregate.ExecutiveSummary = BuildDeterministicSummary(aggregate, language);
-            return aggregate;
+            var dto = await GenerateReportDtoResilientAsync(
+                system,
+                user,
+                maxTokens: 520,
+                contextTokens: 4096,
+                cancellationToken,
+                "synthesis").ConfigureAwait(false);
+            if (dto is not null)
+                return (dto, false);
         }
-        return dto;
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            WriteReportDiagnostic("synthesis-failed", $"errorType={ex.GetType().Name}; fallbackUsed=true");
+        }
+
+        aggregate.ExecutiveSummary = BuildDeterministicSummary(aggregate, language);
+        progress?.Report(new MeetingReportProgress
+        {
+            Percent = 82,
+            Stage = language == "ar" ? "إكمال التقرير من الأدلة" : "Finishing from verified evidence",
+            Detail = language == "ar" ? "استخدم الملخص الموثوق بعد تعذر التحسين" : "Using the evidence-grounded summary after synthesis did not complete"
+        });
+        return (aggregate, true);
     }
 
     private async Task<ReportDto?> GenerateReportDtoResilientAsync(
@@ -386,12 +509,19 @@ Verified facts:
             maxTokens,
             cancellationToken,
             contextTokensOverride: contextTokens,
-            preferJsonObject: true).ConfigureAwait(false);
+            preferJsonObject: true,
+            diagnosticStage: logTag).ConfigureAwait(false);
 
+        WriteReportDiagnostic("json-parse-start", $"stage={logTag}; responseCharacters={raw.Length}");
         if (TryParseReport(raw, out var dto))
+        {
+            WriteReportDiagnostic("json-parse-complete", $"stage={logTag}; parsed=true");
             return dto;
+        }
+        WriteReportDiagnostic("json-parse-complete", $"stage={logTag}; parsed=false");
 
         LogReportFormattingFallback(logTag, raw);
+        WriteReportDiagnostic("json-repair-start", $"stage={logTag}; responseCharacters={raw.Length}");
         var repairSystem = "Repair the supplied local model output into valid JSON matching the requested shape. Preserve facts exactly; do not add anything. Return JSON only.";
         var repairUser = "Output to repair:\n" + raw[..Math.Min(raw.Length, 12000)];
         try
@@ -402,16 +532,35 @@ Verified facts:
                 Math.Min(maxTokens, 520),
                 cancellationToken,
                 contextTokensOverride: 3072,
-                preferJsonObject: true).ConfigureAwait(false);
+                preferJsonObject: true,
+                diagnosticStage: logTag + "-repair").ConfigureAwait(false);
             if (TryParseReport(repaired, out dto))
+            {
+                WriteReportDiagnostic("json-repair-parse-complete", $"stage={logTag}; parsed=true");
+                WriteReportDiagnostic("json-repair-complete", $"stage={logTag}; parsed=true");
                 return dto;
+            }
             LogReportFormattingFallback(logTag + "-repair", repaired);
+            WriteReportDiagnostic("json-repair-parse-complete", $"stage={logTag}; parsed=false");
+            WriteReportDiagnostic("json-repair-complete", $"stage={logTag}; parsed=false");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             LogReportFormattingFallback(logTag + "-repair-error", ex.Message);
         }
         return null;
+    }
+
+    private static void WriteReportDiagnostic(string stage, string safeFields)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.Logs);
+            lock (ReportDiagnosticGate)
+                File.AppendAllText(Path.Combine(AppPaths.Logs, "meeting-report-stage-diagnostics.log"),
+                    $"[{DateTimeOffset.UtcNow:O}] stage={stage}; {safeFields}{Environment.NewLine}");
+        }
+        catch { }
     }
 
     private async Task<ReportDto> NormalizeReportLanguageAsync(
@@ -432,20 +581,27 @@ For English: translate explanatory prose into clear professional English.
 Return valid JSON only. No markdown. No reasoning.
 """;
             var compact = JsonSerializer.Serialize(source, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+            WriteReportDiagnostic("language-normalize-start", $"language={language}; itemCount={EnumerateDtoItems(source).Count()}");
             var raw = await GenerateWithProviderAsync(
                 system,
                 compact,
                 maxTokens: 1700,
                 cancellationToken,
                 contextTokensOverride: 6144,
-                preferJsonObject: true).ConfigureAwait(false);
+                preferJsonObject: true,
+                diagnosticStage: "language-normalize").ConfigureAwait(false);
             if (TryParseReport(raw, out var repaired) && repaired is not null)
+            {
+                WriteReportDiagnostic("language-normalize-complete", $"language={language}; parsed=true; itemCount={EnumerateDtoItems(repaired).Count()}");
                 return repaired;
+            }
             LogReportFormattingFallback("language-repair", raw);
+            WriteReportDiagnostic("language-normalize-complete", $"language={language}; parsed=false");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             LogReportFormattingFallback("language-repair-error", ex.Message);
+            WriteReportDiagnostic("language-normalize-failed", $"language={language}; errorType={ex.GetType().Name}");
         }
         return source;
     }
@@ -1572,9 +1728,6 @@ Evidence:
         var txt = Path.Combine(reportsFolder, "MeetingReport.txt");
         var payload = JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true });
 
-        File.WriteAllText(canonicalJson, payload);
-        File.WriteAllText(legacyJson, payload);
-
         var sb = new StringBuilder();
         sb.AppendLine(report.ReportLanguage == "ar" ? "تقرير الاجتماع — ARCHESTRO" : "ARCHESTRO MEETING REPORT");
         sb.AppendLine(report.MeetingTitle);
@@ -1598,8 +1751,53 @@ Evidence:
         AppendSection(sb, "PARTICIPANT CONTRIBUTIONS", report.ParticipantContributions);
         AppendSection(sb, "FOLLOW UP", report.FollowUp);
         AppendSection(sb, "COMMERCIAL POINTS", report.CommercialPoints);
-
-        File.WriteAllText(txt, sb.ToString());
+        var outputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [canonicalJson] = payload,
+            [legacyJson] = payload,
+            [txt] = sb.ToString()
+        };
+        var originals = outputs.Keys.ToDictionary(path => path,
+            path => File.Exists(path) ? File.ReadAllBytes(path) : null, StringComparer.OrdinalIgnoreCase);
+        var staged = outputs.Keys.ToDictionary(path => path,
+            path => path + ".v28r1-" + Guid.NewGuid().ToString("N") + ".tmp", StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var (path, content) in outputs)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(staged[path], content, new UTF8Encoding(false));
+            }
+            foreach (var path in outputs.Keys)
+                File.Move(staged[path], path, overwrite: true);
+        }
+        catch (Exception saveError)
+        {
+            var rollbackErrors = new List<Exception>();
+            foreach (var path in outputs.Keys)
+            {
+                try
+                {
+                    if (originals[path] is { } original)
+                        File.WriteAllBytes(path, original);
+                    else if (File.Exists(path))
+                        File.Delete(path);
+                }
+                catch (Exception rollbackError) { rollbackErrors.Add(rollbackError); }
+            }
+            if (rollbackErrors.Count > 0)
+                throw new AggregateException("Meeting report save failed and one or more staged outputs could not be restored.",
+                    new[] { saveError }.Concat(rollbackErrors));
+            throw;
+        }
+        finally
+        {
+            foreach (var tempPath in staged.Values)
+            {
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); }
+                catch { }
+            }
+        }
     }
 
     private static void AppendSection(

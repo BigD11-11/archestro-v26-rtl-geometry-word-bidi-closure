@@ -22,6 +22,7 @@ public partial class IntelligenceWindow : Window
     private readonly MeetingAudioPlayer _player = new();
     private MeetingIntelligenceReport? _report;
     private bool _busy;
+    private CancellationTokenSource? _reportGenerationCts;
     private readonly DispatcherTimer _reportElapsedTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private DateTimeOffset? _reportStarted;
     private string? _lastWordReportPath;
@@ -57,6 +58,7 @@ public partial class IntelligenceWindow : Window
             Loaded += IntelligenceWindow_Loaded;
         Closed += (_, _) =>
         {
+            CancelReportGeneration();
             _reportElapsedTimer.Stop();
             _player.Dispose();
         };
@@ -202,7 +204,10 @@ public partial class IntelligenceWindow : Window
 
     private async Task GenerateBriefAsync(string mode, bool automatic)
     {
+        CancelReportGeneration();
         if (_busy) return;
+        var operation = new CancellationTokenSource();
+        _reportGenerationCts = operation;
         var generationCompleted = false;
 
         try
@@ -232,13 +237,18 @@ public partial class IntelligenceWindow : Window
             _report = await _service.AnalyzeMeetingAsync(
                 _meeting,
                 mode,
-                CancellationToken.None,
+                operation.Token,
                 progress,
                 AppearanceService.IsArabic ? "ar" : "en");
             generationCompleted = true;
             LoadExisting();
             IntelTabs.SelectedIndex = 0;
             StatusText.Text = T("Meeting report ready • processed locally", "تقرير الاجتماع جاهز • تمت المعالجة محليًا");
+        }
+        catch (OperationCanceledException) when (operation.IsCancellationRequested)
+        {
+            StatusText.Text = T("Report generation was cancelled. No partial report was saved.", "أُلغي إنشاء التقرير. لم يتم حفظ تقرير جزئي.");
+            ReportStateText.Text = T("Cancelled", "أُلغي");
         }
         catch (Exception ex)
         {
@@ -272,6 +282,14 @@ public partial class IntelligenceWindow : Window
                     MessageBox.Show(ex.Message, T("Report language check", "فحص لغة التقرير"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
+            if (ex is TimeoutException)
+            {
+                StatusText.Text = T(
+                    "Report generation reached its time limit. Retry with a shorter meeting selection.",
+                    "انتهت المهلة المحددة لإنشاء التقرير. أعد المحاولة بعد اختيار مقطع أقصر.");
+                ReportStateText.Text = T("Timed out", "انتهت المهلة");
+                return;
+            }
             if (!automatic)
             {
                 MessageBox.Show(
@@ -287,6 +305,9 @@ public partial class IntelligenceWindow : Window
         }
         finally
         {
+            if (ReferenceEquals(_reportGenerationCts, operation))
+                _reportGenerationCts = null;
+            operation.Dispose();
             _reportElapsedTimer.Stop();
             StopReportWritingMotion();
             UpdateReportElapsed();
@@ -297,6 +318,16 @@ public partial class IntelligenceWindow : Window
                 ReportProgressText.Text = T("Report ready", "التقرير جاهز");
             }
         }
+    }
+
+    private void CancelReportGeneration()
+    {
+        var active = _reportGenerationCts;
+        _reportGenerationCts = null;
+        if (active is null) return;
+        try { active.Cancel(); }
+        catch (ObjectDisposedException) { }
+        active.Dispose();
     }
 
     private void UpdateReportElapsed()
