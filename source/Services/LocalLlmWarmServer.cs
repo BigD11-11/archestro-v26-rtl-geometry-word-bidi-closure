@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -17,7 +17,10 @@ public static class LocalLlmWarmServer
     private static string _modelPath = "";
     private static int _port = 51988;
     private static int _contextCapacity;
+    private static readonly AsyncLocal<bool> SkipNextWarmRequest = new();
     public static string LastTimingSummary { get; private set; } = "";
+
+    public static void BypassNextRequestToCli() => SkipNextWarmRequest.Value = true;
 
     static LocalLlmWarmServer()
     {
@@ -35,6 +38,12 @@ public static class LocalLlmWarmServer
         bool preferJsonObject,
         CancellationToken cancellationToken)
     {
+        if (SkipNextWarmRequest.Value)
+        {
+            SkipNextWarmRequest.Value = false;
+            WriteRuntimeDiagnostic("request-bypass", "reason=bounded-compact-retry; route=one-shot-cli");
+            return null;
+        }
         var serverExe = Path.Combine(runtimeRoot, "llama-server.exe");
         if (!File.Exists(serverExe) || !File.Exists(modelPath))
             return null;

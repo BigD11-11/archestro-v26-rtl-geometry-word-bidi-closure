@@ -543,9 +543,12 @@ Verified facts:
             !cancellationToken.IsCancellationRequested)
         {
             // Extraction is required for a trustworthy report. Retry the Local path once
-            // with a smaller output budget after its first bounded request times out.
+            // through the one-shot CLI with a smaller output budget after warm-server timeout.
             // Evidence validation still gates every DTO; a second timeout remains terminal.
-            WriteReportDiagnostic("extract-retry-start", "attempt=2; reason=local-request-timeout; maxTokens=380");
+            var retryRoute = _reportModelOverride is null ? "one-shot-cli" : "injected-test-provider";
+            WriteReportDiagnostic("extract-retry-start", $"attempt=2; reason=local-request-timeout; maxTokens=380; route={retryRoute}");
+            if (_reportModelOverride is null)
+                LocalLlmWarmServer.BypassNextRequestToCli();
             var retrySystem = system + "\nKeep the JSON compact. Include only clearly evidenced items and omit empty categories.";
             var retryClock = Stopwatch.StartNew();
             raw = await GenerateWithProviderAsync(

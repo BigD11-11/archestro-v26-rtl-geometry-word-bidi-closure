@@ -12,7 +12,7 @@ The first installed same-meeting replay used Local / Qwen3-4B-Q4_K_M with cloud 
 
 Local model requests are bounded to 180 seconds; a report is bounded to 8 minutes. The window owns and cancels the active operation. Failed extraction never saves a Ready report. Synthesis failure may finish from validated evidence through deterministic summary fallback. A language-invalid result cannot save. Save uses staged files and restores the prior cache if a later output fails to commit.
 
-The bounded follow-up adds one Local-only compact extraction retry after the first request timeout (380 output tokens, same evidence and context); it stops the owned warm-server process when cancellation occurs so a timed-out request cannot occupy the server's single inference slot. The retry remains subject to the same per-request timeout, evidence validation, report-wide deadline, and no-save-on-extraction-failure rule. Safe runtime markers identify server startup/health, request start/response/cancellation, and fallback without recording request content.
+The bounded follow-up adds one Local-only compact extraction retry after the first request timeout (380 output tokens, same evidence and context). The retry bypasses the warm server once and uses the existing one-shot CLI fallback, avoiding a second wait on the observed warm-server timeout mode. The retry remains subject to the same per-request timeout, evidence validation, report-wide deadline, and no-save-on-extraction-failure rule. Safe runtime markers identify server startup/health, request start/response/cancellation, and fallback without recording request content. The CLI route is a targeted hypothesis and remains subject to the same-meeting owner replay evidence below.
 
 ## Historical exactness
 
