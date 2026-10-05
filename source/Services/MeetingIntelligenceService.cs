@@ -245,6 +245,13 @@ public sealed class MeetingIntelligenceService
         WriteReportDiagnostic("validate-evidence-complete", $"elapsedMs={validateClock.ElapsedMilliseconds}; itemCount={EnumerateDtoItems(aggregate).Count()}");
         WriteReportDiagnostic("validate-participant-owners-start", $"participantCount={aggregate.ParticipantContributions?.Count ?? 0}");
         ValidateParticipantOwners(aggregate, evidence);
+        if (!EnumerateDtoItems(aggregate).Any())
+        {
+            WriteReportDiagnostic("extract-result-empty", $"evidenceLines={evidence.Count}; resultSaved=false");
+            throw new InvalidOperationException(language == "ar"
+                ? "لم ينتج التحليل نتيجة موثقة كافية لهذا الاجتماع. لم يتم حفظ تقرير."
+                : "The analysis returned no evidence-linked findings for this meeting. No report was saved.");
+        }
         WriteReportDiagnostic("validate-participant-owners-complete", $"elapsedMs={validateClock.ElapsedMilliseconds}; participantCount={aggregate.ParticipantContributions?.Count ?? 0}");
         progress?.Report(new MeetingReportProgress
         {
@@ -442,13 +449,13 @@ Return this exact JSON shape:
 }
 
 Evidence:
-{{FormatEvidence(evidence)}}
+{{(_providerRouter.IsCloudSelected ? FormatEvidence(evidence) : FormatCompactReportEvidence(evidence))}}
 """;
 
         return await GenerateReportDtoResilientAsync(
             system,
             user,
-            maxTokens: 760,
+            maxTokens: _providerRouter.IsCloudSelected ? 760 : 320,
             contextTokens: 4096,
             cancellationToken,
             "chunk").ConfigureAwait(false);
@@ -539,22 +546,22 @@ Verified facts:
         catch (MeetingReportTimeoutException) when (
             logTag == "chunk" &&
             !_providerRouter.IsCloudSelected &&
-            maxTokens > 380 &&
+            maxTokens > 180 &&
             !cancellationToken.IsCancellationRequested)
         {
             // Extraction is required for a trustworthy report. Retry the Local path once
             // through the one-shot CLI with a smaller output budget after warm-server timeout.
             // Evidence validation still gates every DTO; a second timeout remains terminal.
             var retryRoute = _reportModelOverride is null ? "one-shot-cli" : "injected-test-provider";
-            WriteReportDiagnostic("extract-retry-start", $"attempt=2; reason=local-request-timeout; maxTokens=380; route={retryRoute}");
+            WriteReportDiagnostic("extract-retry-start", $"attempt=2; reason=local-request-timeout; maxTokens=180; route={retryRoute}");
             if (_reportModelOverride is null)
                 LocalLlmWarmServer.BypassNextRequestToCli();
-            var retrySystem = system + "\nKeep the JSON compact. Include only clearly evidenced items and omit empty categories.";
+            var retrySystem = system + "\nReturn minimal valid JSON; include at most one concise evidence-linked item per nonempty category and omit empty categories.";
             var retryClock = Stopwatch.StartNew();
             raw = await GenerateWithProviderAsync(
                 retrySystem,
                 user,
-                maxTokens: 380,
+                maxTokens: 180,
                 cancellationToken,
                 contextTokensOverride: contextTokens,
                 preferJsonObject: true,
@@ -1391,6 +1398,21 @@ Evidence:
         "the","and","for","with","what","when","where","who","did","was","were","this","that",
         "من","في","على","الى","إلى","وش","ما","ماذا","متى","وين","هذا","هذه","كان","تم"
     };
+
+    private static string FormatCompactReportEvidence(IEnumerable<EvidenceRef> evidence)
+    {
+        var sb = new StringBuilder();
+        foreach (var item in evidence)
+        {
+            sb.Append('[').Append(item.Id).Append("] [")
+              .Append(TimeSpan.FromSeconds(item.StartSeconds).ToString(@"hh\:mm\:ss"))
+              .Append("] ")
+              .Append(string.IsNullOrWhiteSpace(item.Speaker) ? "Speaker" : item.Speaker)
+              .Append(": ")
+              .AppendLine(item.Text.Replace("\r", " ").Replace("\n", " ").Trim());
+        }
+        return sb.ToString();
+    }
 
     private static string FormatEvidence(IEnumerable<EvidenceRef> evidence)
     {

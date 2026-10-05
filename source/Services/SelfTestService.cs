@@ -454,15 +454,27 @@ public static class SelfTestService
             "Extraction timeout left an exportable partial DOCX.");
         WriteResilienceCheckpoint(root, "extract-timeout-docx-asserted");
 
+        // 2a: a syntactically valid but empty extraction cannot be persisted as Ready.
+        var emptyMeeting = MakeMeeting("resilience-empty-extraction");
+        var emptyService = Service(emptyMeeting, (_, _, _, _, _, _) => Task.FromResult("{}"));
+        var emptyRejected = false;
+        try { await emptyService.AnalyzeMeetingAsync(emptyMeeting, "General", reportLanguage: "ar").ConfigureAwait(false); }
+        catch (InvalidOperationException exception) when (exception.Message.Contains("لم ينتج التحليل", StringComparison.Ordinal)) { emptyRejected = true; }
+        RequireFixture(emptyRejected && !File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(emptyMeeting)),
+            "An empty extraction DTO was saved as a Ready report instead of failing safely.");
         // 2a: one Local extraction timeout gets exactly one compact, bounded retry.
         var retryMeeting = MakeMeeting("resilience-extract-compact-retry");
         var extractionAttempts = 0;
-        var retryService = Service(retryMeeting, (system, _, _, _, _, _) =>
+        var compactRetryTokens = 0;
+        var compactRetryHasEvidence = false;
+        var retryService = Service(retryMeeting, (system, user, tokens, _, _, _) =>
         {
             if (system.Contains("Extract concise factual report material", StringComparison.Ordinal))
             {
                 if (Interlocked.Increment(ref extractionAttempts) == 1)
                     return new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously).Task;
+                compactRetryTokens = tokens;
+                compactRetryHasEvidence = user.Contains("[E0001]", StringComparison.Ordinal);
                 return Task.FromResult(ExtractionJson());
             }
             if (system.Contains("Create a concise customer-facing", StringComparison.Ordinal))
@@ -471,7 +483,7 @@ public static class SelfTestService
         }, TimeSpan.FromMilliseconds(60), TimeSpan.FromSeconds(2));
         var retryProgress = new InlineReportProgress();
         var retriedReport = await retryService.AnalyzeMeetingAsync(retryMeeting, "General", progress: retryProgress, reportLanguage: "ar").ConfigureAwait(false);
-        RequireFixture(extractionAttempts == 2 && retriedReport.ReportLanguage == "ar" &&
+        RequireFixture(extractionAttempts == 2 && compactRetryTokens == 180 && compactRetryHasEvidence && retriedReport.ReportLanguage == "ar" &&
                        File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(retryMeeting)) &&
                        retryProgress.Values.Any(x => x.Percent > 66),
             "Single bounded compact Local extraction retry did not pass validation, progress and durable report save.");

@@ -1,0 +1,51 @@
+{
+  "runId": "RUN_20261006_001750",
+  "meeting": {
+    "durationSeconds": 62,
+    "evidenceLines": 31,
+    "chunkCount": 1,
+    "provider": "Local",
+    "cloudExternalNetwork": false
+  },
+  "attempts": [
+    {
+      "stage": "chunk",
+      "route": "warm-server",
+      "maxTokens": 760,
+      "elapsedMs": 180028,
+      "result": "MeetingReportTimeoutException",
+      "lastMarker": "local-runtime-request-canceled"
+    },
+    {
+      "stage": "chunk-retry",
+      "route": "one-shot-cli",
+      "maxTokens": 380,
+      "elapsedMs": 180084,
+      "result": "MeetingReportTimeoutException",
+      "lastMarker": "local-runtime-request-bypass"
+    }
+  ],
+  "terminal": {
+    "lastEnteredStage": "chunk-retry",
+    "lastCompletedStage": "local-runtime-request-bypass",
+    "completedExtractionChunks": 0,
+    "mergeEntered": false,
+    "validationEntered": false,
+    "saveEntered": false,
+    "elapsedMs": 360160,
+    "uiResult": "localized timeout",
+    "existingCachedReportOverwritten": false
+  },
+  "data": {
+    "databaseIntegrity": "ok",
+    "foreignKeyErrors": 0,
+    "databaseLogicalRows": 44,
+    "settingsSemantics": "equal",
+    "protectedDataDeltaCount": 0,
+    "rollback": "V25 restored with exact DB/WAL/SHM/settings snapshot",
+    "v25ExeSha256": "76985810D7C9E8324BF0FCDC228277834CCEED7FC5674CEF3CB3042D9978EE81"
+  },
+  "secrets": "No key provisioned",
+  "aims": "NO_TOUCH",
+  "tastePass": "HOLD"
+}
