@@ -533,7 +533,7 @@ public static class SelfTestService
         Directory.CreateDirectory(saveLegacy); // prevents the second staged output from committing
         var saveFailed = false;
         try { await saveFailureService.AnalyzeMeetingAsync(saveFailureMeeting, "General", reportLanguage: "ar").ConfigureAwait(false); }
-        catch (IOException) { saveFailed = true; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { saveFailed = true; }
         var reportsFolder = MeetingIntelligenceService.GetReportsFolder(saveFailureMeeting);
         RequireFixture(saveFailed && saveBeforeHash == Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(saveCanonical))) &&
                        Directory.Exists(saveLegacy) && !File.Exists(Path.Combine(reportsFolder, "MeetingReport.txt")) &&
