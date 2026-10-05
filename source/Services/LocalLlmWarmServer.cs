@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -91,6 +92,20 @@ public static class LocalLlmWarmServer
             if (!first.TryGetProperty("message", out var message) || !message.TryGetProperty("content", out var content))
                 return null;
 
+            var generatedText = content.GetString()?.Trim() ?? "";
+            var finishReason = first.TryGetProperty("finish_reason", out var finish) && finish.ValueKind == JsonValueKind.String
+                ? finish.GetString() ?? "unknown"
+                : "not-exposed";
+            var completionTokens = doc.RootElement.TryGetProperty("usage", out var usage) &&
+                                   usage.TryGetProperty("completion_tokens", out var completion) && completion.TryGetInt32(out var count)
+                ? count.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : "not-exposed";
+            var responseHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(generatedText)));
+            var braces = generatedText.Count(c => c == '{') - generatedText.Count(c => c == '}');
+            var brackets = generatedText.Count(c => c == '[') - generatedText.Count(c => c == ']');
+            WriteRuntimeDiagnostic("response-shape",
+                $"model={Path.GetFileNameWithoutExtension(modelPath)}; maxTokens={Math.Clamp(maxTokens, 16, 4096)}; contextTokens={Math.Clamp(contextTokens, 2048, 16384)}; finishReason={SanitizeDiagnosticToken(finishReason)}; completionTokens={completionTokens}; responseCharacters={generatedText.Length}; responseSha256={responseHash}; endsObject={generatedText.TrimEnd().EndsWith('}')}; braceDelta={braces}; bracketDelta={brackets}");
+
             if (doc.RootElement.TryGetProperty("timings", out var timings))
             {
                 static double N(JsonElement e, string name) =>
@@ -101,7 +116,7 @@ public static class LocalLlmWarmServer
                     $"predicted_ms={N(timings, "predicted_ms"):0}; tok_s={N(timings, "predicted_per_second"):0.0}";
             }
 
-            return content.GetString()?.Trim();
+            return generatedText;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -237,4 +252,7 @@ public static class LocalLlmWarmServer
         }
         catch { }
     }
+
+    private static string SanitizeDiagnosticToken(string value) =>
+        new(value.Where(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_').Take(32).ToArray());
 }

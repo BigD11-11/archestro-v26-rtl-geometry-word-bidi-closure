@@ -598,22 +598,24 @@ Verified facts:
             WriteReportDiagnostic("json-parse-complete", $"stage={logTag}; parsed=true");
             return dto;
         }
-        WriteReportDiagnostic("json-parse-complete", $"stage={logTag}; parsed=false; {JsonShapeSummary(raw)}");
+        WriteReportDiagnostic("json-parse-complete", $"stage={logTag}; parsed=false; parseCategory={JsonParseCategory(raw)}; {JsonShapeSummary(raw)}");
 
         LogReportFormattingFallback(logTag, raw);
         WriteReportDiagnostic("json-repair-start", $"stage={logTag}; responseCharacters={raw.Length}");
         var repairSystem = compactLocalOutput
-            ? "Repair the supplied evidence-grounded output into minified JSON with shape {\"items\":[{\"category\":\"keyPoint\",\"text\":\"\",\"owner\":\"\",\"due\":\"\",\"severity\":\"\",\"evidence\":[\"E0001\"]}]}. Keep facts unchanged; do not add. Return JSON only."
+            ? "Regenerate the evidence-grounded extraction from the supplied source evidence. Return minified JSON with shape {\"items\":[{\"category\":\"keyPoint\",\"text\":\"\",\"owner\":\"\",\"due\":\"\",\"severity\":\"\",\"evidence\":[\"E0001\"]}]}. Include at most six concise items. Every item must cite exact supplied evidence IDs. Do not infer or invent. Return JSON only."
             : "Repair the supplied local model output into valid JSON matching the requested shape. Preserve facts exactly; do not add anything. Return JSON only.";
-        var repairUser = "Output to repair:\n" + raw[..Math.Min(raw.Length, 12000)];
+        var repairUser = compactLocalOutput
+            ? user + "\n\nThe previous response was not valid complete JSON. Regenerate from the evidence above; do not copy an incomplete response."
+            : "Output to repair:\n" + raw[..Math.Min(raw.Length, 12000)];
         try
         {
             var repaired = await GenerateWithProviderAsync(
                 repairSystem,
                 repairUser,
-                Math.Min(maxTokens, 520),
+                compactLocalOutput ? Math.Max(maxTokens, 520) : Math.Min(maxTokens, 520),
                 cancellationToken,
-                contextTokensOverride: 3072,
+                contextTokensOverride: compactLocalOutput ? contextTokens : 3072,
                 preferJsonObject: true,
                 diagnosticStage: logTag + "-repair").ConfigureAwait(false);
             if ((compactLocalOutput && TryParseLocalCompactReport(repaired, out dto)) || TryParseReport(repaired, out dto))
@@ -623,7 +625,7 @@ Verified facts:
                 return dto;
             }
             LogReportFormattingFallback(logTag + "-repair", repaired);
-            WriteReportDiagnostic("json-repair-parse-complete", $"stage={logTag}; parsed=false; {JsonShapeSummary(repaired)}");
+            WriteReportDiagnostic("json-repair-parse-complete", $"stage={logTag}; parsed=false; parseCategory={JsonParseCategory(repaired)}; {JsonShapeSummary(repaired)}");
             WriteReportDiagnostic("json-repair-complete", $"stage={logTag}; parsed=false");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1705,6 +1707,22 @@ Evidence:
         return $"startsObject={text.StartsWith('{' )}; endsObject={text.EndsWith('}')}; braceDelta={braces}; bracketDelta={brackets}; codeFence={text.StartsWith("```", StringComparison.Ordinal)}";
     }
 
+    private static string JsonParseCategory(string raw)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(ExtractJson(raw));
+            return document.RootElement.ValueKind == JsonValueKind.Object ? "DeserializerShape" : "UnexpectedRoot";
+        }
+        catch (JsonException exception)
+        {
+            var text = (raw ?? "").Trim();
+            return text.Contains('{') && !text.TrimEnd().EndsWith('}') ? "IncompleteJson" : "JsonSyntax";
+        }
+        catch (InvalidOperationException) { return string.IsNullOrWhiteSpace(raw) ? "EmptyResponse" : "NoCompleteJsonObject"; }
+        catch { return "ParseFailure"; }
+    }
+
     private static bool TryParseReport(string raw, out ReportDto dto)
     {
         dto = new ReportDto();
@@ -1851,11 +1869,51 @@ Evidence:
 
     private static string ExtractJson(string raw)
     {
-        var first = raw.IndexOf('{');
-        var last = raw.LastIndexOf('}');
-        if (first < 0 || last <= first)
+        if (string.IsNullOrWhiteSpace(raw))
             throw new InvalidOperationException("Local AI did not return valid JSON.");
-        return raw.Substring(first, last - first + 1);
+
+        var text = raw.Trim();
+        var searchFrom = 0;
+        while (searchFrom < text.Length)
+        {
+            var start = text.IndexOf('{', searchFrom);
+            if (start < 0) break;
+
+            var depth = 0;
+            var inString = false;
+            var escaped = false;
+            for (var index = start; index < text.Length; index++)
+            {
+                var current = text[index];
+                if (inString)
+                {
+                    if (escaped) escaped = false;
+                    else if (current == '\\') escaped = true;
+                    else if (current == '"') inString = false;
+                    continue;
+                }
+
+                if (current == '"') inString = true;
+                else if (current == '{') depth++;
+                else if (current == '}' && --depth == 0)
+                {
+                    var candidate = text[start..(index + 1)];
+                    try
+                    {
+                        using var document = JsonDocument.Parse(candidate);
+                        if (document.RootElement.ValueKind == JsonValueKind.Object)
+                            return candidate;
+                    }
+                    catch (JsonException) { }
+                    searchFrom = index + 1;
+                    break;
+                }
+            }
+
+            if (depth > 0 || inString) break;
+        }
+
+        throw new InvalidOperationException("Local AI did not return a complete valid JSON object.");
     }
 
     private static double ParseSrt(string text)

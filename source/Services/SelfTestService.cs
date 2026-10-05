@@ -389,6 +389,8 @@ public static class SelfTestService
             });
         static string CompactExtractionJson() =>
             System.Text.Json.JsonSerializer.Serialize(new { items = new[] { new { category = "keyPoint", text = "تمت مراجعة خطة التشغيل والموارد المطلوبة.", evidence = new[] { "E0001" } } } });
+        static string CompactEnglishExtractionJson(string text) =>
+            System.Text.Json.JsonSerializer.Serialize(new { items = new[] { new { category = "keyPoint", text, owner = "", due = "", severity = "", evidence = new[] { "E0001" } } } });
         static string SynthesisJson(string summary = "راجع الفريق خطة التشغيل والموارد المطلوبة، واتفق على متابعة الجدول.") =>
             System.Text.Json.JsonSerializer.Serialize(new { executiveSummary = summary, keyPoints = Array.Empty<object>() });
         MeetingIntelligenceService Service(MeetingRecord meeting,
@@ -474,6 +476,107 @@ public static class SelfTestService
         RequireFixture(compactReport.ReportLanguage == "ar" && compactReport.KeyPoints.Any(x => x.Evidence.Contains("E0001")) &&
                        File.Exists(MeetingIntelligenceService.GetCanonicalReportJsonPath(compactMeeting)),
             "Compact Local extraction JSON did not map, validate and save through the regular report path.");
+
+        // V28R2 English structured-output regressions: long output, framing noise,
+        // one bounded regeneration using the original evidence, and terminal truncation.
+        var englishEvidence = string.Join(" ", Enumerable.Repeat(
+            "The project team confirmed the delivery plan, reviewed risks, and assigned the next schedule update before Friday.", 9));
+        var englishSrt = Path.Combine(root, "english-evidence.srt");
+        File.WriteAllText(englishSrt,
+            "1\n00:00:00,000 --> 00:00:30,000\n" + englishEvidence + "\n\n" +
+            "2\n00:00:30,000 --> 00:01:00,000\nThe team will review the schedule and report any delivery risks.\n");
+        MeetingRecord EnglishMeeting(string id)
+        {
+            var value = MakeMeeting(id);
+            value.TranscriptPath = englishSrt;
+            value.SrtPath = englishSrt;
+            value.DurationSeconds = 60;
+            return value;
+        }
+        const string englishSummary = "The team reviewed delivery plans and will update the schedule before Friday.";
+        var englishSynthesis = System.Text.Json.JsonSerializer.Serialize(new { executiveSummary = englishSummary, keyPoints = Array.Empty<object>() });
+
+        var largeEnglishMeeting = EnglishMeeting("v28r2-english-large-json");
+        var largeEnglishResponse = CompactEnglishExtractionJson(englishEvidence);
+        var largeEnglishService = Service(largeEnglishMeeting, (system, _, _, _, _, _) => Task.FromResult(
+            system.Contains("Create a concise customer-facing", StringComparison.Ordinal) ? englishSynthesis : largeEnglishResponse));
+        var largeEnglishReport = await largeEnglishService.AnalyzeMeetingAsync(largeEnglishMeeting, "General", reportLanguage: "en").ConfigureAwait(false);
+        var largeEnglishPassed = largeEnglishResponse.Length > 714 && largeEnglishReport.ReportLanguage == "en" &&
+                                 largeEnglishReport.KeyPoints.Any(item => item.Evidence.Contains("E0001"));
+        RequireFixture(largeEnglishPassed, "English structured JSON longer than 714 characters was clipped or lost its evidence ID.");
+
+        var framedEnglishMeeting = EnglishMeeting("v28r2-english-framed-json");
+        var framedEnglishService = Service(framedEnglishMeeting, (system, _, _, _, _, _) => Task.FromResult(
+            system.Contains("Create a concise customer-facing", StringComparison.Ordinal)
+                ? englishSynthesis
+                : "Model result follows:\n```json\n" + CompactEnglishExtractionJson("The team will review the schedule and report any delivery risks.") + "\n```\nEnd of result."));
+        var framedEnglishReport = await framedEnglishService.AnalyzeMeetingAsync(framedEnglishMeeting, "General", reportLanguage: "en").ConfigureAwait(false);
+        var framedEnglishPassed = framedEnglishReport.KeyPoints.Any(item => item.Evidence.Contains("E0001"));
+        RequireFixture(framedEnglishPassed, "Complete fenced/noisy English JSON was not safely extracted.");
+
+        var regenerateEnglishMeeting = EnglishMeeting("v28r2-english-bounded-regeneration");
+        var regenerateCalls = 0;
+        var regenerateTokens = 0;
+        int? regenerateContext = null;
+        var regenerateHasEvidence = false;
+        var regenerateEnglishService = Service(regenerateEnglishMeeting, (system, user, tokens, _, context, _) =>
+        {
+            if (system.Contains("Create a concise customer-facing", StringComparison.Ordinal)) return Task.FromResult(englishSynthesis);
+            if (system.StartsWith("Regenerate the evidence-grounded extraction", StringComparison.Ordinal))
+            {
+                regenerateCalls++;
+                regenerateTokens = tokens;
+                regenerateContext = context;
+                regenerateHasEvidence = user.Contains("[E0001]", StringComparison.Ordinal);
+                return Task.FromResult(CompactEnglishExtractionJson("The project team confirmed the delivery plan and schedule update before Friday."));
+            }
+            return Task.FromResult("{\"items\":[{\"category\":\"keyPoint\",\"text\":\"unfinished value");
+        });
+        var regenerateEnglishReport = await regenerateEnglishService.AnalyzeMeetingAsync(regenerateEnglishMeeting, "General", reportLanguage: "en").ConfigureAwait(false);
+        var boundedRegenerationPassed = regenerateCalls == 1 && regenerateTokens == 520 && regenerateContext == 4096 &&
+                                        regenerateHasEvidence && regenerateEnglishReport.KeyPoints.Any(item => item.Evidence.Contains("E0001"));
+        RequireFixture(boundedRegenerationPassed, "Invalid English JSON did not use exactly one bounded evidence-grounded regeneration.");
+
+        var truncatedEnglishMeeting = EnglishMeeting("v28r2-english-terminal-truncation");
+        var truncatedEnglishPath = MeetingIntelligenceService.GetCanonicalReportJsonPath(truncatedEnglishMeeting);
+        Directory.CreateDirectory(Path.GetDirectoryName(truncatedEnglishPath)!);
+        var oldValidEnglishCache = new MeetingIntelligenceReport
+        {
+            MeetingId = truncatedEnglishMeeting.Id, ReportLanguage = "en", ExecutiveSummary = "Previously valid English cache.",
+            SourceTranscriptSha256 = TranscriptHash(englishSrt),
+            EvidenceIndex = new() { new EvidenceRef { Id = "E0001", Text = englishEvidence } }
+        };
+        var oldValidEnglishBytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(oldValidEnglishCache);
+        File.WriteAllBytes(truncatedEnglishPath, oldValidEnglishBytes);
+        var terminalTruncationCalls = 0;
+        var terminalTruncationService = Service(truncatedEnglishMeeting, (system, _, _, _, _, _) =>
+        {
+            if (system.Contains("Create a concise customer-facing", StringComparison.Ordinal)) return Task.FromResult(englishSynthesis);
+            terminalTruncationCalls++;
+            return Task.FromResult("{\"items\":[{\"category\":\"keyPoint\",\"text\":\"unfinished value");
+        });
+        var truncatedEnglishRejected = false;
+        try { await terminalTruncationService.AnalyzeMeetingAsync(truncatedEnglishMeeting, "General", reportLanguage: "en").ConfigureAwait(false); }
+        catch (InvalidOperationException) { truncatedEnglishRejected = true; }
+        var validCachePreserved = truncatedEnglishRejected && terminalTruncationCalls == 2 &&
+                                  oldValidEnglishBytes.SequenceEqual(File.ReadAllBytes(truncatedEnglishPath));
+        RequireFixture(validCachePreserved, "Truly truncated English JSON was accepted, retried beyond one attempt, or overwrote the valid cache.");
+
+        var v28r2QaOutput = Environment.GetEnvironmentVariable("ARCHESTRO_V28R2_ENGLISH_JSON_QA_OUTPUT");
+        if (!string.IsNullOrWhiteSpace(v28r2QaOutput))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(v28r2QaOutput))!);
+            File.WriteAllText(v28r2QaOutput, System.Text.Json.JsonSerializer.Serialize(new
+            {
+                status = "PASS", englishStructuredResponseCharacters = largeEnglishResponse.Length,
+                responseOver714Characters = largeEnglishPassed, framedCompleteJson = framedEnglishPassed,
+                boundedRegeneration = boundedRegenerationPassed, regenerationCalls = regenerateCalls,
+                regenerateMaxTokens = regenerateTokens, regenerateContextTokens = regenerateContext,
+                sourceEvidencePreserved = regenerateHasEvidence, truncatedJsonRejected = validCachePreserved,
+                validCachePreservedAfterFailure = validCachePreserved
+            }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        }
+
         // 2a: one Local extraction timeout gets exactly one compact, bounded retry.
         var retryMeeting = MakeMeeting("resilience-extract-compact-retry");
         var extractionAttempts = 0;
