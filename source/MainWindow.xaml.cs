@@ -56,6 +56,7 @@ public partial class MainWindow : Window
     private double _latestSystemLevel;
     private double _pulsePhase;
     private DateTimeOffset _lastAudioDeviceProbe = DateTimeOffset.MinValue;
+    private int _audioMeterOperationRunning;
     private DateTimeOffset _lastTranscriptUiRefresh = DateTimeOffset.MinValue;
     private string _lastTickerText = "";
     private bool _tickerActive;
@@ -138,7 +139,10 @@ public partial class MainWindow : Window
         UpdateNameState();
         UpdateSearchPlaceholder();
 
-        _audioMeter.Start();
+        // WASAPI's native Initialize call can block indefinitely on a broken Windows
+        // endpoint. Keep it off the WPF dispatcher so a device problem cannot hide
+        // the whole first-run window.
+        QueueAudioMeterOperation(forceStart: true);
         _transcription.RecoverInterruptedStatuses();
         RefreshStatusCards();
         RefreshAll();
@@ -251,6 +255,31 @@ public partial class MainWindow : Window
     {
         _hwndSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
         _hwndSource?.AddHook(WindowProc);
+    }
+
+    private void QueueAudioMeterOperation(bool forceStart = false)
+    {
+        if (Interlocked.CompareExchange(ref _audioMeterOperationRunning, 1, 0) != 0)
+            return;
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                if (forceStart)
+                    _audioMeter.Start();
+                else
+                    _audioMeter.RefreshIfDeviceChanged();
+            }
+            catch
+            {
+                // Audio metering is optional. Recording reports its own capture errors.
+            }
+            finally
+            {
+                Volatile.Write(ref _audioMeterOperationRunning, 0);
+            }
+        });
     }
 
     private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -959,8 +988,7 @@ public partial class MainWindow : Window
         if (now - _lastAudioDeviceProbe >= TimeSpan.FromSeconds(2.5))
         {
             _lastAudioDeviceProbe = now;
-            if (_audioMeter.RefreshIfDeviceChanged())
-                RefreshStatusCards();
+            QueueAudioMeterOperation();
         }
 
         if (_recording.IsRecording && _recordStarted.HasValue)
@@ -1172,7 +1200,7 @@ public partial class MainWindow : Window
                 HintText.Text = IsArabicLanguage ? "جارٍ فحص الميكروفون وصوت النظام. سيبدأ التسجيل تلقائيًا." : "Checking microphone and system audio. Recording will start automatically.";
 
                 // Refresh audio endpoints immediately in case a USB microphone was just connected.
-                _audioMeter.RefreshIfDeviceChanged();
+                QueueAudioMeterOperation();
                 RefreshStatusCards();
 
                 _marks.Clear();
@@ -3445,7 +3473,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        try { _audioMeter.Dispose(); } catch { }
+        // Do not let a stuck native endpoint initialization block application shutdown.
+        if (Volatile.Read(ref _audioMeterOperationRunning) == 0)
+            try { _audioMeter.Dispose(); } catch { }
         _clockTimer.Stop();
         _visualTimer.Stop();
         _searchDebounceTimer.Stop();
