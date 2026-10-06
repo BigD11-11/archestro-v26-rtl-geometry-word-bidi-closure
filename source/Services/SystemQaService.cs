@@ -218,7 +218,8 @@ public static class SystemQaService
             await WithTimeout(
                 () => transcriber.TranscribeAsync(
                     meeting,
-                    CancellationToken.None),
+                    CancellationToken.None,
+                    startImmediately: true),
                 TimeSpan.FromMinutes(6),
                 "QA transcription exceeded 6 minutes.");
 
