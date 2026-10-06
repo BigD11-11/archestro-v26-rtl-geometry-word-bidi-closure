@@ -1,0 +1,30 @@
+{
+  "product": "Archestro Meeting Vault",
+  "customerVersion": "1.1.0",
+  "internalBuild": "V29",
+  "branch": "codex/v29-ai-usage-cost-closeout",
+  "sourceCommit": "d80fc3a0638888978c5628f252ea87ad353b025c",
+  "buildTimestampUtc": "2026-10-06T06:04:40Z",
+  "artifacts": {
+    "customerOfflinePackage": {
+      "file": "ARCHSTRO_MEETING_VAULT_1_1_0_CUSTOMER_OFFLINE_PACKAGE.zip",
+      "bytes": 3761421378,
+      "sha256": "9E3E618AB2D40EA24DACCC56D90F6D119F34456CB8755902774CBD43A443CD47"
+    },
+    "publishedExecutable": {
+      "file": "Archestro.MeetingVault.exe",
+      "bytes": 212150903,
+      "sha256": "8D4463450CA627CBC3D470A12E18A1FE206EBF1980BED2495DB66C5EFF0DE38E"
+    },
+    "sourceAndProofZip": {
+      "file": "V1_1_0_SOURCE_AND_PROOF.zip",
+      "bytes": 5915975,
+      "sha256": "1500CA57D963140BC25CB86E197E6A5A62C5BC0A0EEA65083E35E0C9A9CD4A34"
+    },
+    "resultZip": {
+      "file": "V1_1_0_RESULT.zip",
+      "bytes": 364908,
+      "sha256": "A5E5858A75DFB96ECBC3A172538809A0333B66CEE47BE02C585148F7FF98F38F"
+    }
+  }
+}

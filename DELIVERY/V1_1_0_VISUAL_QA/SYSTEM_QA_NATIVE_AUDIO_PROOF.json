@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "customerVersion": "1.1.0",
+  "internalBuild": "V29",
+  "sourceCommit": "d80fc3a0638888978c5628f252ea87ad353b025c",
+  "engine": "native-whisper",
+  "microphone": "PASS",
+  "systemLoopback": "PASS",
+  "startStopPauseResume": "PASS",
+  "losslessMasterAndM4aWorkingCopy": "PASS",
+  "nativeRuntimeModelDependencies": "PASS",
+  "sqlitePersistence": "PASS",
+  "runtimePath": "Installed/_runtime/TranscriptionNative/v1",
+  "qaRunRoot": "clean final package install"
+}

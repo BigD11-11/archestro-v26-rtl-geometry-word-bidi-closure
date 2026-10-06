@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-06",
+  "build": "1.1.0 / V29",
+  "sourceCommit": "d80fc3a0638888978c5628f252ea87ad353b025c",
+  "cleanInstallRoot": "V:\\ARCHSTRO_CUSTOMER_RELEASES\\V29_CLEAN_INSTALL_PACKAGE_FINAL_20261006",
+  "startup": "READY",
+  "libraryEmpty": true,
+  "provider": "Local (default)",
+  "usageDashboardZero": true,
+  "result": true,
+  "sqliteIntegrity": "ok",
+  "foreignKeyViolations": 0,
+  "meetingRows": 0,
+  "nativeWhisperRuntimeInstalled": true,
+  "localModelInstalled": true
+}

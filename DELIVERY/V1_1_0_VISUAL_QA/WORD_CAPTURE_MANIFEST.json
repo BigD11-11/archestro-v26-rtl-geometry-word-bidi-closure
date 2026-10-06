@@ -1,14 +1,34 @@
-﻿[
-    {
-        "File":  "Arabic_Synthetic_Report.docx",
-        "Pages":  2,
-        "OpenedInWord":  true,
-        "ReadOnly":  true
-    },
-    {
-        "File":  "English_Synthetic_Report.docx",
-        "Pages":  2,
-        "OpenedInWord":  true,
-        "ReadOnly":  true
-    }
+[
+  {
+    "File": "Arabic_Synthetic_Report.docx",
+    "Page": 1,
+    "Screenshot": "WORD_AR_PAGE_1.png",
+    "OpenedInMicrosoftWord": true,
+    "LiveWindowRender": true,
+    "AccountRegionMasked": true
+  },
+  {
+    "File": "Arabic_Synthetic_Report.docx",
+    "Page": 2,
+    "Screenshot": "WORD_AR_PAGE_2.png",
+    "OpenedInMicrosoftWord": true,
+    "LiveWindowRender": true,
+    "AccountRegionMasked": true
+  },
+  {
+    "File": "English_Synthetic_Report.docx",
+    "Page": 1,
+    "Screenshot": "WORD_EN_PAGE_1.png",
+    "OpenedInMicrosoftWord": true,
+    "LiveWindowRender": true,
+    "AccountRegionMasked": true
+  },
+  {
+    "File": "English_Synthetic_Report.docx",
+    "Page": 2,
+    "Screenshot": "WORD_EN_PAGE_2.png",
+    "OpenedInMicrosoftWord": true,
+    "LiveWindowRender": true,
+    "AccountRegionMasked": true
+  }
 ]

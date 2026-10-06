@@ -7,5 +7,9 @@
   "matchedEntryNames": [
     "App/SpeakerModels/0-four-speakers-zh.wav"
   ],
-  "pass": false
+  "pass": false,
+  "packageSha256": "9EB8006CDAFC56587782A6661CABAC3DB2575F7FBE2DD2EB280727B7941F52C0",
+  "unchanged": true,
+  "ownerDataMatches": 0,
+  "classification": "Only the static upstream sherpa-onnx demo WAV is flagged by the generic audio-extension rule; no user recording or private meeting data."
 }

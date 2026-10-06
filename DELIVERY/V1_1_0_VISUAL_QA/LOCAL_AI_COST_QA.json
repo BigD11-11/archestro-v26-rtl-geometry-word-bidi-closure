@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "provider": "Local",
+  "model": "Qwen3-4B-Q4_K_M",
+  "cloudEnabled": false,
+  "meetingId": "v29-synthetic-local-cost-qa",
+  "reportId": "b2cba7f751d242d28ef8eb05c1fd5879",
+  "usageLedgerRowsForReport": 2,
+  "costQuality": "LOCAL_ZERO",
+  "elapsedTotalMs": 150799,
+  "reportItemCount": 6,
+  "reportSha256": "E97BC552BDF72EB032D3D882C9E73A69814964ACAD79F4C0083EAF0F8BEAAA22",
+  "docxSha256": "3E8348D2BCF8072424087D75BDFA4124831890BBB68471A9549F9A4E7E226726",
+  "cachedReportReopenAddedRows": false,
+  "externalNetworkUsed": false
+}

@@ -1,0 +1,14 @@
+{
+  "package": "ARCHSTRO_MEETING_VAULT_1_1_0_CUSTOMER_OFFLINE_PACKAGE.zip",
+  "entryCount": 90,
+  "forbiddenPathMatches": 0,
+  "ownerPathMatches": 0,
+  "secretPatternMatches": 0,
+  "matchedEntryNames": [],
+  "pass": true,
+  "packageSha256": "9E3E618AB2D40EA24DACCC56D90F6D119F34456CB8755902774CBD43A443CD47",
+  "bytes": 3761421378,
+  "customerVersion": "1.1.0",
+  "internalBuild": "V29",
+  "sourceCommit": "d80fc3a0638888978c5628f252ea87ad353b025c"
+}
