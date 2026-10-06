@@ -1,0 +1,130 @@
+[
+  {
+    "language": "Arabic",
+    "file": "Arabic_Synthetic_Report.docx",
+    "sectionBidi": true,
+    "reportArabicParagraphs": 56,
+    "arabicRunsWithRtl": 55,
+    "tableCount": 5,
+    "tableBiDiCount": 5,
+    "imageParagraphs": [
+      {
+        "bidi": true,
+        "alignment": "start",
+        "inlineExtents": [
+          {
+            "Cx": {
+              "HasValue": true,
+              "Value": 4200000,
+              "InnerText": "4200000"
+            },
+            "Cy": {
+              "HasValue": true,
+              "Value": 2362500,
+              "InnerText": "2362500"
+            }
+          }
+        ],
+        "imageRelationships": [
+          "Rc0546fc0575046bd"
+        ]
+      },
+      {
+        "bidi": true,
+        "alignment": "center",
+        "inlineExtents": [
+          {
+            "Cx": {
+              "HasValue": true,
+              "Value": 5800000,
+              "InnerText": "5800000"
+            },
+            "Cy": {
+              "HasValue": true,
+              "Value": 3262500,
+              "InnerText": "3262500"
+            }
+          }
+        ],
+        "imageRelationships": [
+          "R5266579b18c64c69"
+        ]
+      }
+    ],
+    "captions": [
+      {
+        "alignment": "start",
+        "bidi": true
+      },
+      {
+        "alignment": "center",
+        "bidi": true
+      }
+    ],
+    "openXmlValidatorErrors": 0
+  },
+  {
+    "language": "English",
+    "file": "English_Synthetic_Report.docx",
+    "sectionBidi": false,
+    "reportArabicParagraphs": 0,
+    "arabicRunsWithRtl": 0,
+    "tableCount": 5,
+    "tableBiDiCount": 0,
+    "imageParagraphs": [
+      {
+        "bidi": false,
+        "alignment": "left",
+        "inlineExtents": [
+          {
+            "Cx": {
+              "HasValue": true,
+              "Value": 4200000,
+              "InnerText": "4200000"
+            },
+            "Cy": {
+              "HasValue": true,
+              "Value": 2362500,
+              "InnerText": "2362500"
+            }
+          }
+        ],
+        "imageRelationships": [
+          "Rab20985da18a4c4d"
+        ]
+      },
+      {
+        "bidi": false,
+        "alignment": "center",
+        "inlineExtents": [
+          {
+            "Cx": {
+              "HasValue": true,
+              "Value": 5800000,
+              "InnerText": "5800000"
+            },
+            "Cy": {
+              "HasValue": true,
+              "Value": 3262500,
+              "InnerText": "3262500"
+            }
+          }
+        ],
+        "imageRelationships": [
+          "Rdfde878ebf5c406d"
+        ]
+      }
+    ],
+    "captions": [
+      {
+        "alignment": "left",
+        "bidi": false
+      },
+      {
+        "alignment": "center",
+        "bidi": false
+      }
+    ],
+    "openXmlValidatorErrors": 0
+  }
+]

@@ -184,6 +184,30 @@ public partial class App : Application
             return;
         }
 
+        if (e.Args.Contains("--word-visual-qa", StringComparer.OrdinalIgnoreCase))
+        {
+            base.OnStartup(e);
+            try
+            {
+                var output = Environment.GetEnvironmentVariable("ARCHESTRO_WORD_QA_OUTPUT");
+                if (string.IsNullOrWhiteSpace(output))
+                    output = Path.Combine(AppPaths.Logs, "word-visual-qa");
+                SelfTestService.RunWordVisualQa(output);
+                Environment.ExitCode = 0;
+            }
+            catch (Exception ex)
+            {
+                var errorPath = Environment.GetEnvironmentVariable("ARCHESTRO_WORD_QA_ERROR");
+                if (string.IsNullOrWhiteSpace(errorPath))
+                    errorPath = Path.Combine(AppPaths.Logs, "word-visual-qa-error.txt");
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(errorPath))!);
+                File.WriteAllText(errorPath, ex.ToString());
+                Environment.ExitCode = 21;
+            }
+            Shutdown(Environment.ExitCode);
+            return;
+        }
+
         if (e.Args.Contains("--rtl-layout-qa", StringComparer.OrdinalIgnoreCase))
         {
             base.OnStartup(e);

@@ -16,6 +16,23 @@ public static class SystemQaService
             _ => throw new InvalidOperationException($"Unsupported configured transcription engine: {configured}")
         };
     }
+
+    public static string ResolveNativeRuntimeRoot(string bridgePath)
+    {
+        if (string.IsNullOrWhiteSpace(bridgePath) || !File.Exists(bridgePath) ||
+            !Path.GetFileName(bridgePath).Equals("ArchestroTranscriptionBridge.exe", StringComparison.OrdinalIgnoreCase))
+            throw new FileNotFoundException("Native Whisper bridge is missing or has the wrong identity.", bridgePath);
+        var directory = new DirectoryInfo(Path.GetDirectoryName(bridgePath)!);
+        for (var depth = 0; directory is not null && depth < 6; depth++, directory = directory.Parent)
+        {
+            var model = Path.Combine(directory.FullName, "models", "ggml-large-v3-turbo-q5_0.bin");
+            var engine = Path.Combine(directory.FullName, "engine", "Release");
+            if (File.Exists(model) && File.Exists(Path.Combine(engine, "whisper-cli.exe")) &&
+                File.Exists(Path.Combine(engine, "whisper.dll")) && File.Exists(Path.Combine(engine, "ggml.dll")))
+                return directory.FullName;
+        }
+        throw new FileNotFoundException("Native Whisper model or engine dependencies are missing beside the configured bridge.", bridgePath);
+    }
     private static async Task<T> WithTimeout<T>(
         Func<Task<T>> action,
         TimeSpan timeout,
@@ -91,8 +108,7 @@ public static class SystemQaService
             switch (engine)
             {
                 case "native-whisper":
-                    if (!File.Exists(settings.BuzzExe))
-                        throw new FileNotFoundException("Native Whisper runtime missing.", settings.BuzzExe);
+                    _ = ResolveNativeRuntimeRoot(settings.BuzzExe);
                     break;
                 case "direct-whisper":
                     if (!File.Exists(settings.DirectWhisperPythonExe) || !File.Exists(settings.DirectWhisperWorkerPath) || !File.Exists(settings.DirectWhisperModelPath))
@@ -254,7 +270,8 @@ public static class SystemQaService
             var receipt = $"""
             ARCHESTRO MEETING VAULT - NATIVE AUDIO SYSTEM QA PASS
             Date: {DateTimeOffset.Now:o}
-            Build: R9.6.2
+            Build: {AppBuildIdentity.CustomerVersion} / {AppBuildIdentity.InternalBuild}
+            Source commit: {AppBuildIdentity.SourceCommit}
             Recording engine: Windows WASAPI / NAudio
             Microphone native stream: PASS
             System Audio loopback native stream: PASS
@@ -265,6 +282,7 @@ public static class SystemQaService
             Lossless recording master: PASS
             FFmpeg M4A working copy: PASS
             Configured transcription engine: {engine} PASS
+            Native runtime/model/dependencies: {(engine == "native-whisper" ? ResolveNativeRuntimeRoot(settings.BuzzExe) : "not applicable")}
             SQLite persistence: PASS
             Endpoint pre-enumeration: NOT USED
             External Factory Watchdog: REQUIRED / ACTIVE

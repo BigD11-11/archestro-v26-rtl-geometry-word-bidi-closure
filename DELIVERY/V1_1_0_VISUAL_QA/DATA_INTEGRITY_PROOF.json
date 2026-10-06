@@ -1,0 +1,33 @@
+{
+  "migration": "additive AI usage/pricing/FX schema",
+  "tables": {
+    "meetings": {
+      "beforeRows": 13,
+      "afterRows": 13,
+      "beforeSemanticSha256": "63518cac0e68ce473954038461bee3d24a4a827f1e1c7cb9756632ec7721c6ce",
+      "afterSemanticSha256": "63518cac0e68ce473954038461bee3d24a4a827f1e1c7cb9756632ec7721c6ce",
+      "preserved": true
+    },
+    "categories": {
+      "beforeRows": 10,
+      "afterRows": 10,
+      "beforeSemanticSha256": "dc313ca0599e89c5f6ec86e5cf8feed56c90ad46ef6b8e017c14fa77adf02a7a",
+      "afterSemanticSha256": "dc313ca0599e89c5f6ec86e5cf8feed56c90ad46ef6b8e017c14fa77adf02a7a",
+      "preserved": true
+    },
+    "important_marks": {
+      "beforeRows": 8,
+      "afterRows": 8,
+      "beforeSemanticSha256": "061c6d194f48557bd45dda1a5c91551ee74c82312b8de994692be88955ce22c5",
+      "afterSemanticSha256": "061c6d194f48557bd45dda1a5c91551ee74c82312b8de994692be88955ce22c5",
+      "preserved": true
+    }
+  },
+  "integrityCheck": "ok",
+  "foreignKeyViolations": 0,
+  "ledgerRows": 0,
+  "pricingSnapshots": 1,
+  "fxSnapshots": 1,
+  "migrationRows": 1,
+  "allPriorSemanticDataPreserved": true
+}

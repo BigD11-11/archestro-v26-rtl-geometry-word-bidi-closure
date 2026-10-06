@@ -10,14 +10,167 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Diagnostics;
+using System.Globalization;
+using System.Text.Json;
 using Archestro.MeetingVault.Dialogs;
 using Microsoft.Data.Sqlite;
+using System.Net;
+using System.Net.Http;
+using W = DocumentFormat.OpenXml.Wordprocessing;
+using A = DocumentFormat.OpenXml.Drawing;
+using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
 
 namespace Archestro.MeetingVault.Services;
 
 public static class SelfTestService
 {
     private static readonly List<object> WordSemanticProof = new();
+
+    private sealed class StaticResponseHandler(string response) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(response, System.Text.Encoding.UTF8, "application/json")
+            });
+    }
+
+    public static void RunWordVisualQa(string outputPath)
+    {
+        Directory.CreateDirectory(outputPath);
+        var arabicCard = CreateSyntheticVisual(outputPath, "synthetic-arabic-card.png", "بطاقة اختبار آمنة • API / RTL", true, false);
+        var arabicWide = CreateSyntheticVisual(outputPath, "synthetic-arabic-wide.png", "مسار اصطناعي: اجتماع ← قرار ← متابعة", true, true);
+        var englishCard = CreateSyntheticVisual(outputPath, "synthetic-english-card.png", "Synthetic QA card • API / LTR", false, false);
+        var englishWide = CreateSyntheticVisual(outputPath, "synthetic-english-wide.png", "Synthetic workflow: meeting → decision → follow-up", false, true);
+        var proof = new List<object>();
+        foreach (var arabic in new[] { true, false })
+        {
+            var suffix = arabic ? "Arabic" : "English";
+            var meeting = new MeetingRecord
+            {
+                Id = "synthetic-word-visual-qa-" + suffix.ToLowerInvariant(),
+                FolderPath = Path.Combine(outputPath, "synthetic-" + suffix.ToLowerInvariant()),
+                Title = arabic ? "اجتماع اصطناعي لمراجعة الواجهة" : "Synthetic interface review meeting",
+                HasExplicitTitle = true,
+                StartLocal = new DateTimeOffset(2026, 10, 6, 9, 0, 0, TimeSpan.FromHours(3)),
+                DurationSeconds = 900,
+                TranscriptionStatus = "Synthetic QA fixture"
+            };
+            var report = CreateSyntheticVisualReport(meeting, arabic);
+            var assets = arabic
+                ? new[] { new ReportVisualAsset(arabicCard, "شكل ١: بطاقة اصطناعية بمحاذاة البداية العربية (RTL)."), new ReportVisualAsset(arabicWide, "شكل ٢: مخطط اصطناعي بعرض الصفحة داخل هوامش المحتوى.", true) }
+                : new[] { new ReportVisualAsset(englishCard, "Figure 1: synthetic card aligned to the English reading edge (LTR)."), new ReportVisualAsset(englishWide, "Figure 2: synthetic full-width diagram inside content margins.", true) };
+            var exported = MeetingReportWordExporter.Export(meeting, report, assets);
+            var target = Path.Combine(outputPath, suffix + "_Synthetic_Report.docx");
+            File.Copy(exported, target, true);
+            proof.Add(InspectSyntheticWord(target, arabic, suffix));
+        }
+        File.WriteAllText(Path.Combine(outputPath, "OPENXML_VISUAL_PROOF.json"), JsonSerializer.Serialize(proof, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(Path.Combine(outputPath, "VISUAL_QA_REPORT.md"), """
+        # V1.1.0 Synthetic Word Visual QA
+
+        These fixtures use synthetic Arabic/English content only. They are generated through `MeetingReportWordExporter.Export` with two synthetic PNG assets per report: one edge-aligned content card and one full-width centered diagram. The exporter sets paragraph direction/alignment, inline image geometry, captions, RTL table direction, and section BiDi semantics.
+
+        Open `Arabic_Synthetic_Report.docx` and `English_Synthetic_Report.docx` in Microsoft Word. Screenshot files are added after live Word review. `OPENXML_VISUAL_PROOF.json` records section direction, image inline extents, paragraph/run BiDi, table BiDi, and caption alignment.
+        """, new System.Text.UTF8Encoding(false));
+    }
+
+    private static string CreateSyntheticVisual(string root, string fileName, string label, bool arabic, bool wide)
+    {
+        var width = wide ? 1600 : 1000;
+        var height = wide ? 460 : 640;
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen())
+        {
+            dc.DrawRectangle(new SolidColorBrush((Color)ColorConverter.ConvertFromString(wide ? "#132238" : "#F4F7FA")), null, new Rect(0, 0, width, height));
+            var accent = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#C79A3B"));
+            var ink = new SolidColorBrush((Color)ColorConverter.ConvertFromString(wide ? "#FFFFFF" : "#132238"));
+            dc.DrawRoundedRectangle(wide ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#203754")) : Brushes.White,
+                new Pen(accent, 4), new Rect(42, 40, width - 84, height - 80), 24, 24);
+            var flow = arabic ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+            var formatted = new FormattedText(label, CultureInfo.InvariantCulture, flow, new Typeface("Segoe UI"), wide ? 42 : 34, ink, 1.0);
+            formatted.MaxTextWidth = width - 150;
+            formatted.MaxTextHeight = height - 200;
+            dc.DrawText(formatted, new Point(75, 90));
+            var chartLeft = wide ? 150 : 100;
+            var chartTop = wide ? 110 : 320;
+            var barWidth = wide ? 220 : 140;
+            var values = new[] { 110.0, 180.0, 145.0, 245.0 };
+            for (var i = 0; i < values.Length; i++)
+            {
+                var x = chartLeft + i * (barWidth + 44);
+                var barHeight = wide ? values[i] * 0.65 : values[i];
+                var bar = new Rect(x, chartTop + 250 - barHeight, barWidth, barHeight);
+                dc.DrawRoundedRectangle(i % 2 == 0 ? accent : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#5C8DAB")), null, bar, 12, 12);
+            }
+        }
+        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        var path = Path.Combine(root, fileName); using (var stream = File.Create(path)) encoder.Save(stream); return path;
+    }
+
+    private static MeetingIntelligenceReport CreateSyntheticVisualReport(MeetingRecord meeting, bool arabic)
+    {
+        const string evidenceId = "SYN-001";
+        var evidenceText = arabic
+            ? "اتفق الفريق في الاجتماع الاصطناعي على اختبار محاذاة RTL وLTR وجدول الإجراءات."
+            : "The synthetic team agreed to verify RTL and LTR layout and the action table.";
+        var report = new MeetingIntelligenceReport
+        {
+            ReportId = "synthetic-" + (arabic ? "ar" : "en") + "-v1.1.0",
+            MeetingId = meeting.Id,
+            MeetingMode = "General",
+            GeneratedLocal = meeting.StartLocal,
+            Model = "Synthetic QA fixture",
+            ReportLanguage = arabic ? "ar" : "en",
+            MeetingTitle = meeting.Title,
+            MeetingStartLocal = meeting.StartLocal,
+            ExecutiveSummary = arabic
+                ? "ملخص اصطناعي آمن يراجع عرض API وWord باتجاه RTL، مع إبقاء المصطلحات التقنية الإنجليزية مقروءة من اليسار إلى اليمين."
+                : "A safe synthetic summary reviews the API and Word layout in LTR while preserving Arabic terms as readable RTL text.",
+            Topics = new() { new IntelligenceItem { Text = arabic ? "اتجاه النص وتناسق العرض" : "Text direction and layout consistency", Evidence = new() { evidenceId } } },
+            KeyPoints = new() { new IntelligenceItem { Text = arabic ? "المحتوى العربي RTL والمحتوى الإنجليزي LTR." : "Arabic content is RTL and English content is LTR.", Evidence = new() { evidenceId } } },
+            Decisions = new() { new IntelligenceItem { Text = arabic ? "اعتماد اختبار جدول ثنائي اللغة." : "Approve bilingual table verification.", Owner = "Synthetic QA", Evidence = new() { evidenceId } } },
+            ActionItems = new() { new IntelligenceItem { Text = arabic ? "التحقق من صور التقرير وتسمياتها." : "Verify report images and captions.", Owner = "Synthetic QA", Due = "2026-10-07", Evidence = new() { evidenceId } } },
+            Risks = new() { new IntelligenceItem { Text = arabic ? "مراقبة قصّ التسميات الطويلة." : "Check for clipping on long labels.", Severity = "Low", Evidence = new() { evidenceId } } },
+            EvidenceIndex = new() { new EvidenceRef { Id = evidenceId, MeetingId = meeting.Id, MeetingTitle = meeting.Title, MeetingStartLocal = meeting.StartLocal, StartSeconds = 24, EndSeconds = 32, Speaker = "Synthetic QA", Text = evidenceText } }
+        };
+        return report;
+    }
+
+    private static object InspectSyntheticWord(string path, bool arabic, string language)
+    {
+        using var doc = WordprocessingDocument.Open(path, false);
+        var body = doc.MainDocumentPart!.Document.Body!;
+        var imageParagraphs = body.Descendants<W.Paragraph>().Where(p => p.Descendants<W.Drawing>().Any()).ToList();
+        var captions = body.Descendants<W.Paragraph>().Where(p => p.Descendants<W.Text>().Any(t => t.Text.StartsWith(arabic ? "شكل " : "Figure ", StringComparison.Ordinal))).ToList();
+        var tables = body.Descendants<W.Table>().ToList();
+        var imageProof = imageParagraphs.Select(p => new
+        {
+            bidi = p.ParagraphProperties?.GetFirstChild<W.BiDi>() is not null,
+            alignment = p.ParagraphProperties?.GetFirstChild<W.Justification>()?.Val?.InnerText ?? "style-default",
+            inlineExtents = p.Descendants<DW.Extent>().Select(x => new { x.Cx, x.Cy }).ToList(),
+            imageRelationships = p.Descendants<A.Blip>().Select(x => x.Embed?.Value).ToList()
+        }).ToList();
+        var validatorErrors = new DocumentFormat.OpenXml.Validation.OpenXmlValidator().Validate(doc).Count();
+        RequireFixture(imageParagraphs.Count == 2 && captions.Count == 2, $"{language} visual fixture lost an image or caption.");
+        RequireFixture(tables.Count > 0 && tables.All(t => !arabic || t.GetFirstChild<W.TableProperties>()?.GetFirstChild<W.BiDiVisual>() is not null), $"{language} visual fixture table direction is invalid.");
+        RequireFixture(validatorErrors == 0, $"{language} visual fixture has {validatorErrors} OpenXML validation errors.");
+        return new
+        {
+            language,
+            file = Path.GetFileName(path),
+            sectionBidi = body.Descendants<W.SectionProperties>().Any(s => s.GetFirstChild<W.BiDi>() is not null),
+            reportArabicParagraphs = body.Descendants<W.Paragraph>().Count(p => p.ParagraphProperties?.GetFirstChild<W.BiDi>() is not null),
+            arabicRunsWithRtl = body.Descendants<W.Run>().Count(r => r.RunProperties?.GetFirstChild<W.RightToLeftText>() is not null),
+            tableCount = tables.Count,
+            tableBiDiCount = tables.Count(t => t.GetFirstChild<W.TableProperties>()?.GetFirstChild<W.BiDiVisual>() is not null),
+            imageParagraphs = imageProof,
+            captions = captions.Select(p => new { alignment = p.ParagraphProperties?.GetFirstChild<W.Justification>()?.Val?.InnerText, bidi = p.ParagraphProperties?.GetFirstChild<W.BiDi>() is not null }).ToList(),
+            openXmlValidatorErrors = validatorErrors
+        };
+    }
 
     public static void RunRtlLayoutQa(string outputPath)
     {
@@ -257,6 +410,25 @@ public static class SelfTestService
 
         repo.Upsert(record, "Contract pricing follow up and operations.");
         var usage = new AiUsageLedgerService(Path.Combine(testRoot, "selftest.db"));
+        var fakeProviderBody = JsonSerializer.Serialize(new
+        {
+            id = "fixture-response-id",
+            model = "deepseek-flash",
+            choices = new[] { new { message = new { role = "assistant", content = "ok" } } },
+            usage = new
+            {
+                prompt_tokens = 100, prompt_cache_hit_tokens = 40, prompt_cache_miss_tokens = 60,
+                completion_tokens = 20, total_tokens = 120, completion_tokens_details = new { reasoning_tokens = 7 }
+            }
+        });
+        using (var fakeHttp = new HttpClient(new StaticResponseHandler(fakeProviderBody)))
+        {
+            var fakeProvider = new OpenAiCompatibleIntelligenceProvider("deepseek", "deepseek-flash", "self-test-only", fakeHttp);
+            var captured = fakeProvider.GenerateTextAsync("synthetic", "synthetic", "deepseek-flash", 32, CancellationToken.None).GetAwaiter().GetResult();
+            if (captured.RequestId != "fixture-response-id" || captured.InputTokens != 100 || captured.CacheHitTokens != 40 ||
+                captured.CacheMissTokens != 60 || captured.OutputTokens != 20 || captured.TotalTokens != 120 || captured.ReasoningTokens != 7)
+                throw new InvalidOperationException("Provider-returned token usage parsing fixture failed.");
+        }
         usage.Record(new("selftest-local", DateTimeOffset.UtcNow, record.Id, "r-local", "Local", "Qwen3-4B-Q4_K_M", "meeting-report-synthesis", null, null, null, null, null, null, null, 500, true, null, 0, 0, "LOCAL_ZERO"));
         usage.Record(new("selftest-cloud", new DateTimeOffset(2026,10,6,4,30,0,TimeSpan.Zero), record.Id, "r-cloud", "DeepSeek", "deepseek-flash", "ask-this-meeting", "fixture-response-id", 100, 40, 60, 20, 0, 120, 250, true, null, null, null, ""));
         var usageSummary = usage.SummaryForMeeting(record.Id, "r-cloud");
@@ -264,12 +436,21 @@ public static class SelfTestService
             throw new InvalidOperationException("Per-meeting AI usage ledger fixture failed.");
         if (!usageSummary.Contains("0.000021", StringComparison.Ordinal))
             throw new InvalidOperationException("DeepSeek immutable-price calculation fixture failed.");
+        _ = usage.SummaryForMeeting(record.Id, "r-cloud");
+        var dashboard = usage.Dashboard();
+        if (!dashboard.Contains("Today:", StringComparison.Ordinal) || !dashboard.Contains("This month:", StringComparison.Ordinal) ||
+            !dashboard.Contains("All time:", StringComparison.Ordinal) || !dashboard.Contains("DeepSeek/deepseek-flash", StringComparison.Ordinal) ||
+            !dashboard.Contains("Local/Qwen3-4B-Q4_K_M", StringComparison.Ordinal))
+            throw new InvalidOperationException("AI usage dashboard period/provider aggregation fixture failed.");
         using (var usageDb = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = Path.Combine(testRoot, "selftest.db") }.ToString()))
         {
             usageDb.Open(); using var columns = usageDb.CreateCommand(); columns.CommandText = "PRAGMA table_info(ai_usage_ledger);";
             using var reader = columns.ExecuteReader(); var names = new List<string>(); while(reader.Read()) names.Add(reader.GetString(1));
             if (names.Any(name => name.Contains("prompt", StringComparison.OrdinalIgnoreCase) || name.Contains("transcript", StringComparison.OrdinalIgnoreCase) || name.Contains("response_text", StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException("AI usage ledger contains a content-bearing field.");
+            using var count = usageDb.CreateCommand(); count.CommandText = "SELECT COUNT(*) FROM ai_usage_ledger;";
+            if (Convert.ToInt32(count.ExecuteScalar(), CultureInfo.InvariantCulture) != 2)
+                throw new InvalidOperationException("Opening a cached usage summary double-counted API use.");
         }
         var hits = repo.Search("pricing", "Contracts", 10);
         if (!hits.Any(x => x.Id == record.Id))

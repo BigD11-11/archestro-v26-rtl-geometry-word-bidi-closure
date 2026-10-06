@@ -1,0 +1,11 @@
+{
+  "package": "ARCHSTRO_MEETING_VAULT_1_0_0_CUSTOMER_OFFLINE_PACKAGE_FINAL2.zip",
+  "entryCount": 71,
+  "forbiddenPathMatches": 1,
+  "ownerPathMatches": 0,
+  "secretPatternMatches": 0,
+  "matchedEntryNames": [
+    "App/SpeakerModels/0-four-speakers-zh.wav"
+  ],
+  "pass": false
+}

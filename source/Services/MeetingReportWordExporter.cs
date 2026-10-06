@@ -3,8 +3,13 @@ using Archestro.MeetingVault.Models;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using W = DocumentFormat.OpenXml.Wordprocessing;
+using A = DocumentFormat.OpenXml.Drawing;
+using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
 
 namespace Archestro.MeetingVault.Services;
+
+public sealed record ReportVisualAsset(string Path, string Caption, bool FullWidth = false, int WidthPixels = 1600, int HeightPixels = 900);
 
 public static class MeetingReportWordExporter
 {
@@ -15,7 +20,9 @@ public static class MeetingReportWordExporter
     private const string Border = "D7DEE8";
     private const string Muted = "667085";
 
-    public static string Export(MeetingRecord meeting, MeetingIntelligenceReport report)
+    public static string Export(MeetingRecord meeting, MeetingIntelligenceReport report) => Export(meeting, report, Array.Empty<ReportVisualAsset>());
+
+    public static string Export(MeetingRecord meeting, MeetingIntelligenceReport report, IReadOnlyList<ReportVisualAsset> visualAssets)
     {
         var reportsFolder = MeetingIntelligenceService.GetReportsFolder(meeting);
         Directory.CreateDirectory(reportsFolder);
@@ -44,6 +51,7 @@ public static class MeetingReportWordExporter
 
         AddCover(body, meeting, report, title, arabic);
         AddExecutiveSummary(body, report, arabic);
+        foreach (var visual in visualAssets) AddVisualAsset(body, main, visual, arabic);
         AddBulletSection(body, arabic ? "المحاور الرئيسية" : "Key Topics", report.Topics, report, arabic);
         AddBulletSection(body, arabic ? "أبرز النقاط" : "Key Points", report.KeyPoints, report, arabic);
         AddItemTable(body, arabic ? "القرارات" : "Decisions", report.Decisions, report, arabic, TableKind.Decisions);
@@ -71,6 +79,40 @@ public static class MeetingReportWordExporter
         body.Append(sectionProperties);
         main.Document.Save();
         return path;
+    }
+
+    private static void AddVisualAsset(W.Body body, MainDocumentPart main, ReportVisualAsset asset, bool arabic)
+    {
+        if (!File.Exists(asset.Path) || new FileInfo(asset.Path).Length is <= 0 or > 20_000_000)
+            throw new InvalidDataException("A report visual asset is missing or exceeds the 20 MB limit.");
+        if (!asset.Path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || asset.WidthPixels <= 0 || asset.HeightPixels <= 0)
+            throw new InvalidDataException("Report visual assets must be PNG images with positive dimensions.");
+        var imagePart = main.AddImagePart(ImagePartType.Png);
+        using (var stream = File.OpenRead(asset.Path)) imagePart.FeedData(stream);
+        var width = asset.FullWidth ? 5_800_000L : 4_200_000L;
+        var height = Math.Max(1L, width * asset.HeightPixels / asset.WidthPixels);
+        var id = (uint)(main.ImageParts.Count());
+        var drawing = new W.Drawing(
+            new DW.Inline(
+                new DW.Extent { Cx = width, Cy = height },
+                new DW.EffectExtent { LeftEdge = 0L, TopEdge = 0L, RightEdge = 0L, BottomEdge = 0L },
+                new DW.DocProperties { Id = id, Name = Path.GetFileName(asset.Path), Description = asset.Caption },
+                new DW.NonVisualGraphicFrameDrawingProperties(new A.GraphicFrameLocks { NoChangeAspect = true }),
+                new A.Graphic(new A.GraphicData(
+                    new PIC.Picture(
+                        new PIC.NonVisualPictureProperties(
+                            new PIC.NonVisualDrawingProperties { Id = id, Name = Path.GetFileName(asset.Path) },
+                            new PIC.NonVisualPictureDrawingProperties()),
+                        new PIC.BlipFill(new A.Blip { Embed = main.GetIdOfPart(imagePart) }, new A.Stretch(new A.FillRectangle())),
+                        new PIC.ShapeProperties(
+                            new A.Transform2D(new A.Offset { X = 0L, Y = 0L }, new A.Extents { Cx = width, Cy = height }),
+                            new A.PresetGeometry(new A.AdjustValueList()) { Preset = A.ShapeTypeValues.Rectangle })))
+                { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" }))
+            { DistanceFromTop = 0U, DistanceFromBottom = 0U, DistanceFromLeft = 0U, DistanceFromRight = 0U });
+        var paragraph = CreateParagraph("", "BodyText", arabic, spacingBefore: 80, spacingAfter: 40, center: asset.FullWidth);
+        paragraph.Append(new W.Run(drawing));
+        body.Append(paragraph);
+        body.Append(CreateParagraph(asset.Caption, "EvidenceText", arabic, muted: true, spacingAfter: 140, center: asset.FullWidth));
     }
 
     private static void AddCover(W.Body body, MeetingRecord meeting, MeetingIntelligenceReport report, string title, bool arabic)

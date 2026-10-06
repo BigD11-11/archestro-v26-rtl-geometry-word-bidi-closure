@@ -66,7 +66,7 @@ public sealed class AiUsageLedgerService
         cmd.Parameters.Clear(); cmd.Parameters.AddWithValue("$id", PricingId);
         cmd.Parameters.AddWithValue("$json", "{\"version\":1,\"schedule\":\"UTC weekdays except Chinese public holidays; peak 01-04 and 06-10\",\"sourceVerifiedUtc\":\"2026-10-06\"}");
         cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O")); cmd.ExecuteNonQuery();
-        cmd.CommandText = "INSERT OR IGNORE INTO ai_fx_snapshots VALUES($id,'USD','SAR',3.75,'2026-10-06T00:00:00Z','https://sama.gov.sa/en-US/Currency/FinExc/Pages/Currency.aspx',$now);";
+        cmd.CommandText = "INSERT OR IGNORE INTO ai_fx_snapshots VALUES($id,'USD','SAR',3.75,'2026-10-06T00:00:00Z','https://www.sama.gov.sa/en-US/MediaCenter/News/Pages/news-557.aspx',$now);";
         cmd.Parameters.Clear(); cmd.Parameters.AddWithValue("$id", FxId); cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O")); cmd.ExecuteNonQuery();
         t.Commit();
     }
@@ -129,9 +129,9 @@ public sealed class AiUsageLedgerService
     public string Dashboard()
     {
         using var c = Open(); using var cmd = c.CreateCommand();
-        cmd.CommandText = "SELECT COALESCE(SUM(CASE WHEN date(timestamp_utc,'localtime')=date('now','localtime') THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN strftime('%Y-%m',timestamp_utc,'localtime')=strftime('%Y-%m','now','localtime') THEN 1 ELSE 0 END),0),COUNT(*),COALESCE(SUM(input_tokens),0),COALESCE(SUM(output_tokens),0),COALESCE(SUM(calculated_cost_usd),0),COALESCE(SUM(calculated_cost_sar),0) FROM ai_usage_ledger;";
+        cmd.CommandText = "SELECT COALESCE(SUM(CASE WHEN date(timestamp_utc,'localtime')=date('now','localtime') THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN strftime('%Y-%m',timestamp_utc,'localtime')=strftime('%Y-%m','now','localtime') THEN 1 ELSE 0 END),0),COUNT(*),COALESCE(SUM(input_tokens),0),COALESCE(SUM(output_tokens),0),COALESCE(SUM(CASE WHEN date(timestamp_utc,'localtime')=date('now','localtime') THEN calculated_cost_usd ELSE 0 END),0),COALESCE(SUM(CASE WHEN date(timestamp_utc,'localtime')=date('now','localtime') THEN calculated_cost_sar ELSE 0 END),0),COALESCE(SUM(CASE WHEN strftime('%Y-%m',timestamp_utc,'localtime')=strftime('%Y-%m','now','localtime') THEN calculated_cost_usd ELSE 0 END),0),COALESCE(SUM(CASE WHEN strftime('%Y-%m',timestamp_utc,'localtime')=strftime('%Y-%m','now','localtime') THEN calculated_cost_sar ELSE 0 END),0),COALESCE(SUM(calculated_cost_usd),0),COALESCE(SUM(calculated_cost_sar),0) FROM ai_usage_ledger;";
         using var r=cmd.ExecuteReader(); r.Read();
-        var headline=string.Format(CultureInfo.InvariantCulture,"Today: {0} requests | This month: {1} | All time: {2}\nTokens: {3} input / {4} output\nCalculated API cost: ${5:0.000000} USD | {6:0.000000} SAR\nLocal API cost = 0 | Rates: {7}",r.GetInt64(0),r.GetInt64(1),r.GetInt64(2),r.GetInt64(3),r.GetInt64(4),r.GetDouble(5),r.GetDouble(6),PricingId);
+        var headline=string.Format(CultureInfo.InvariantCulture,"Today: {0} requests • ${1:0.000000} USD / {2:0.000000} SAR\nThis month: {3} requests • ${4:0.000000} USD / {5:0.000000} SAR\nAll time: {6} requests • ${7:0.000000} USD / {8:0.000000} SAR\nTokens: {9} input / {10} output\nLocal API cost = 0 | Rates: {11}",r.GetInt64(0),r.GetDouble(5),r.GetDouble(6),r.GetInt64(1),r.GetDouble(7),r.GetDouble(8),r.GetInt64(2),r.GetDouble(9),r.GetDouble(10),r.GetInt64(3),r.GetInt64(4),PricingId);
         r.Close(); cmd.CommandText="SELECT provider,model,COUNT(*),COALESCE(SUM(input_tokens),0)+COALESCE(SUM(output_tokens),0),COALESCE(SUM(calculated_cost_usd),0),COALESCE(SUM(calculated_cost_sar),0) FROM ai_usage_ledger GROUP BY provider,model ORDER BY provider,model;";
         using var groups=cmd.ExecuteReader(); var detail=new StringBuilder(headline);
         while(groups.Read()) detail.AppendLine().AppendFormat(CultureInfo.InvariantCulture,"{0}/{1}: {2} requests • {3} tokens • ${4:0.000000} / {5:0.000000} SAR",groups.GetString(0),groups.GetString(1),groups.GetInt64(2),groups.GetInt64(3),groups.GetDouble(4),groups.GetDouble(5));
