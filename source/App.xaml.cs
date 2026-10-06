@@ -184,6 +184,29 @@ public partial class App : Application
             return;
         }
 
+        if (e.Args.Contains("--v29-local-cost-qa", StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var output = Environment.GetEnvironmentVariable("ARCHESTRO_V29_LOCAL_COST_QA_OUTPUT");
+                if (string.IsNullOrWhiteSpace(output))
+                    throw new InvalidOperationException("ARCHESTRO_V29_LOCAL_COST_QA_OUTPUT is required.");
+                Task.Run(() => SelfTestService.RunV29LocalCostLedgerQaAsync(output)).GetAwaiter().GetResult();
+                Environment.ExitCode = 0;
+            }
+            catch (Exception ex)
+            {
+                var errorPath = Environment.GetEnvironmentVariable("ARCHESTRO_V29_LOCAL_COST_QA_ERROR");
+                if (string.IsNullOrWhiteSpace(errorPath))
+                    errorPath = Path.Combine(AppPaths.Logs, "v29-local-cost-qa-error.txt");
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(errorPath))!);
+                File.WriteAllText(errorPath, ex.ToString());
+                Environment.ExitCode = 22;
+            }
+            Shutdown(Environment.ExitCode);
+            return;
+        }
+
         if (e.Args.Contains("--word-visual-qa", StringComparer.OrdinalIgnoreCase))
         {
             base.OnStartup(e);

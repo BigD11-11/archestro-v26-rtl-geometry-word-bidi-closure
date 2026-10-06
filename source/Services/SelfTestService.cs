@@ -26,6 +26,84 @@ public static class SelfTestService
 {
     private static readonly List<object> WordSemanticProof = new();
 
+    public static async Task RunV29LocalCostLedgerQaAsync(string outputPath)
+    {
+        if (string.IsNullOrWhiteSpace(outputPath))
+            throw new InvalidOperationException("V29 Local AI cost QA output path is required.");
+        var settings = new SettingsService().LoadOrDiscover();
+        if (!settings.IntelligenceProvider.Equals("Local", StringComparison.OrdinalIgnoreCase) || settings.CloudIntelligenceEnabled)
+            throw new InvalidOperationException("Local cost QA requires the Local provider with cloud disabled.");
+
+        var repo = new MeetingRepository();
+        var id = "v29-synthetic-local-cost-qa";
+        var folder = Path.Combine(AppPaths.Meetings, "V29 Synthetic Local Cost QA");
+        Directory.CreateDirectory(folder);
+        var transcript = string.Join(Environment.NewLine, new[]
+        {
+            "The synthetic team reviewed a fictional offline application feature.",
+            "They agreed that each completed report should retain provider and model usage totals.",
+            "The Local provider should report zero API cost while keeping measured processing time.",
+            "A cached report should reopen without adding a second usage ledger entry.",
+            "The team assigned synthetic QA to verify the Arabic and English Word output.",
+            "They scheduled a follow-up review for the next release checkpoint."
+        });
+        var transcriptPath = Path.Combine(folder, "transcript.txt");
+        File.WriteAllText(transcriptPath, transcript, new System.Text.UTF8Encoding(false));
+        var meeting = new MeetingRecord
+        {
+            Id = id,
+            FolderPath = folder,
+            Title = "Synthetic Local Cost QA",
+            HasExplicitTitle = true,
+            StartLocal = DateTimeOffset.Now.AddMinutes(-2),
+            DurationSeconds = 420,
+            TranscriptPath = transcriptPath,
+            TranscriptionStatus = "Transcript ready",
+            Category = "Uncategorized",
+            CategoryColor = CategoryCatalog.ColorFor("Uncategorized")
+        };
+        repo.Upsert(meeting, transcript);
+        var service = new MeetingIntelligenceService(settings, repo);
+        var clock = Stopwatch.StartNew();
+        var report = await service.AnalyzeMeetingAsync(meeting, "General", CancellationToken.None, reportLanguage: "en").ConfigureAwait(false);
+        clock.Stop();
+        if (report is null || report.KeyPoints.Count + report.Topics.Count + report.Decisions.Count + report.ActionItems.Count == 0)
+            throw new InvalidOperationException("Local AI did not produce a supported synthetic report.");
+        var docx = MeetingReportWordExporter.Export(meeting, report);
+        var ledger = new AiUsageLedgerService();
+        long CountRows()
+        {
+            using var c = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = AppPaths.Database }.ToString()); c.Open();
+            using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT COUNT(*) FROM ai_usage_ledger WHERE meeting_id=$id AND report_id=$report;";
+            cmd.Parameters.AddWithValue("$id", id); cmd.Parameters.AddWithValue("$report", report.ReportId); return (long)cmd.ExecuteScalar()!;
+        }
+        var beforeCacheOpen = CountRows();
+        if (beforeCacheOpen < 1 || !ledger.SummaryForMeeting(id, report.ReportId).Contains("Local/", StringComparison.Ordinal) ||
+            !ledger.SummaryForMeeting(id, report.ReportId).Contains("LOCAL_ZERO", StringComparison.Ordinal))
+            throw new InvalidOperationException("Local report usage was not recorded at zero API cost.");
+        var cached = service.LoadReport(meeting);
+        if (cached is null || cached.ReportId != report.ReportId || CountRows() != beforeCacheOpen)
+            throw new InvalidOperationException("Opening the saved Local report changed the usage ledger.");
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
+        File.WriteAllText(outputPath, JsonSerializer.Serialize(new
+        {
+            status = "PASS",
+            provider = "Local",
+            model = report.Model,
+            cloudEnabled = false,
+            meetingId = id,
+            reportId = report.ReportId,
+            usageLedgerRowsForReport = beforeCacheOpen,
+            costQuality = "LOCAL_ZERO",
+            elapsedTotalMs = clock.ElapsedMilliseconds,
+            reportItemCount = report.KeyPoints.Count + report.Topics.Count + report.Decisions.Count + report.ActionItems.Count,
+            reportSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(MeetingIntelligenceService.GetCanonicalReportJsonPath(meeting)))),
+            docxSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(docx))),
+            cachedReportReopenAddedRows = false,
+            externalNetworkUsed = false
+        }, new JsonSerializerOptions { WriteIndented = true }), new System.Text.UTF8Encoding(false));
+    }
+
     private sealed class StaticResponseHandler(string response) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
