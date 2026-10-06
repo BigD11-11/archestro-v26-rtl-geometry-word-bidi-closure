@@ -1,0 +1,33 @@
+﻿<Application x:Class="Archestro.MeetingVault.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnMainWindowClose">
+  <Application.Resources>
+    <SolidColorBrush x:Key="AppBackground" Color="#06101D"/>
+    <SolidColorBrush x:Key="PageBrush" Color="#06101D"/>
+    <SolidColorBrush x:Key="PanelBrush" Color="#BC0B1728"/>
+    <SolidColorBrush x:Key="PanelBrush2" Color="#CE0E1C2F"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#FF111F33"/>
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#FF172A44"/>
+    <SolidColorBrush x:Key="InputBrush" Color="#FF0D192B"/>
+    <SolidColorBrush x:Key="MenuBrush" Color="#FF0F1D30"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#273B55"/>
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#F7F9FC"/>
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#91A3B8"/>
+    <SolidColorBrush x:Key="IconBrush" Color="#D9E4F2"/>
+    <SolidColorBrush x:Key="DisabledBrush" Color="#607087"/>
+    <SolidColorBrush x:Key="RecorderFaceBrush" Color="#0D1C30"/>
+    <SolidColorBrush x:Key="RecorderPrimaryBrush" Color="#F7FAFF"/>
+    <SolidColorBrush x:Key="RecorderSecondaryBrush" Color="#AFC4DC"/>
+    <SolidColorBrush x:Key="StatusBrush" Color="#F5A623"/>
+    <SolidColorBrush x:Key="WatermarkBrush" Color="#34465A"/>
+    <SolidColorBrush x:Key="MutedBrush" Color="#8FA2BB"/>
+    <SolidColorBrush x:Key="BlueBrush" Color="#3B82F6"/>
+    <SolidColorBrush x:Key="GreenBrush" Color="#31C874"/>
+    <SolidColorBrush x:Key="AmberBrush" Color="#F5A623"/>
+    <SolidColorBrush x:Key="RedBrush" Color="#FF6268"/>
+    <SolidColorBrush x:Key="SidebarBrush" Color="#F20B1626"/>
+    <SolidColorBrush x:Key="TitleBarBrush" Color="#FF08111F"/>
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+  </Application.Resources>
+</Application>

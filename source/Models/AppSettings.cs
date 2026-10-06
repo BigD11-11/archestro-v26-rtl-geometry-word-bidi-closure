@@ -27,6 +27,13 @@ public sealed class AppSettings
     public bool CloudIntelligenceEnabled { get; set; }
     public bool CloudIntelligenceConsentAccepted { get; set; }
     public bool CloudLocalFallbackEnabled { get; set; } = true;
+    // V30 processing controls. Offline remains the safe customer default.
+    public string ProcessingMode { get; set; } = "Offline";
+    public string TranscriptionProvider { get; set; } = "Local";
+    public string EncryptedGroqApiKey { get; set; } = "";
+    public string InboxPath { get; set; } = "";
+    public string NewAudioPolicy { get; set; } = "Import + Transcribe";
+    public bool MoveInboxFilesToProcessed { get; set; }
     public int AiMaxThreads { get; set; } = 6;
     public int AiContextTokens { get; set; } = 8192;
     public string DefaultMeetingMode { get; set; } = "General";

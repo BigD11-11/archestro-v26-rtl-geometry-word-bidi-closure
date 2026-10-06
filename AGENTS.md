@@ -1,27 +1,25 @@
 # AGENTS.md
 
-## Project rules
+## Product authority
 
-- Installed authority before this branch is V26 target technical PASS.
-- This branch is a bounded V27 corrective task for owner-visible Arabic RTL geometry and Microsoft Word RTL rendering only.
+- Accepted CustomerVersion 1.1.0 / V29 is immutable; do not replace or rewrite its package, report, hashes, or release history.
+- Active release task: CustomerVersion 1.2.0 / InternalBuild V30, based on the accepted V29 product.
 - Aims is out of scope: NO TOUCH.
-- Taste Pass is locked.
-- Do not remove features or change unrelated product behavior.
-- Treat owner screenshots / real Microsoft Word behavior as higher authority than synthetic layout assumptions.
-- Preserve the five V26 baseline file hashes until intentionally changed by this task.
-- Prefer minimal deltas over architectural rewrites.
-- Build and test on Windows before declaring readiness.
-- Any result must distinguish automated PASS from owner visual acceptance.
+- WhatsApp Business and Mobile companion are history/future scope only; do not implement them in V30.
+- Preserve owner data. Back up DB/WAL/SHM/settings and verify semantic equality before and after owner migration.
+- Never place private owner records, credentials, logs, or settings in GitHub evidence or customer packages.
 
-## Code Review Rules
+## V30 scope
 
-### RTL geometry
-- Flag any design that combines inherited RightToLeft layout mirroring with manual physical column swapping without an explicit stable physical coordinate shell.
-- Physical card/nav placement must be proven using arranged coordinates from the actual production visual tree.
+- System Status Pulse, WASAPI audio health, Drive Desktop folder detection, Archestro Inbox and canonical intake queue.
+- Groq Whisper Large V3 Turbo, DeepSeek cloud intelligence, native-whisper and Local Qwen.
+- Cloud Fast / Offline / Custom, local/cloud usage and immutable cost accounting, bilingual Arabic/English UX.
+- Additive migration, clean offline customer package, clean install, owner upgrade, shortcuts, regression, and Taste Pass.
 
-### Word RTL
-- Flag Arabic DOCX output that lacks DocumentSettingsPart/themeFontLang bidi metadata or relies only on right justification without true paragraph/run/section/table BiDi semantics.
-- Real Microsoft Word rendering remains the acceptance target; validator-only success is insufficient.
+## Engineering and acceptance
 
-### Scope
-- Flag changes to recording, transcription, speaker, AI runtime/model, storage contracts, unrelated navigation, or Aims.
+- Keep local Offline mode the clean-install default and guarantee no cloud transfer while it is selected.
+- Keep cloud keys DPAPI-protected for the current Windows user; never include secrets in logs, screenshots, commits, or packages.
+- File intake watches only the configured folder, uses a stable-file guard and SHA-256 dedupe, and never deletes the source by default.
+- Test on Windows with Release build and win-x64 self-contained publish. Run the named regression gates and inspect the final UI in Arabic and English.
+- Do not declare release PASS until installation, owner data, shortcuts, clean package, privacy scan, regression, and Taste Pass all have evidence.

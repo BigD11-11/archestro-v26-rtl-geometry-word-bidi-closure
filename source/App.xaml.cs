@@ -56,6 +56,26 @@ public partial class App : Application
             return;
         }
 
+        if (e.Args.Contains("--v30-qa", StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var output = Environment.GetEnvironmentVariable("ARCHESTRO_V30_QA_OUTPUT");
+                if (string.IsNullOrWhiteSpace(output)) throw new InvalidOperationException("ARCHESTRO_V30_QA_OUTPUT is required.");
+                Task.Run(() => V30QaService.RunAsync(output)).GetAwaiter().GetResult();
+                Environment.ExitCode = 0;
+            }
+            catch (Exception ex)
+            {
+                var error = Environment.GetEnvironmentVariable("ARCHESTRO_V30_QA_ERROR") ?? Path.Combine(AppPaths.Logs, "v30-qa-error.txt");
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(error))!);
+                File.WriteAllText(error, ex.GetType().Name + ": " + ex.Message);
+                Environment.ExitCode = 30;
+            }
+            Shutdown(Environment.ExitCode);
+            return;
+        }
+
         if (e.Args.Contains("--v28r1-local-report-qa", StringComparer.OrdinalIgnoreCase))
         {
             try

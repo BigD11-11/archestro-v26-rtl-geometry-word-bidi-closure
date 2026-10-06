@@ -35,6 +35,9 @@ public sealed class SettingsService
                     existing.Appearance.Equals("Light", StringComparison.OrdinalIgnoreCase) ? "Light" : "System";
                 existing.PreferredLanguage =
                     existing.PreferredLanguage.Equals("Arabic", StringComparison.OrdinalIgnoreCase) ? "Arabic" : "English";
+                existing.ProcessingMode = existing.ProcessingMode is "Cloud Fast" or "Custom" ? existing.ProcessingMode : "Offline";
+                existing.TranscriptionProvider = existing.TranscriptionProvider.Equals("Groq", StringComparison.OrdinalIgnoreCase) ? "Groq" : "Local";
+                existing.NewAudioPolicy = existing.NewAudioPolicy is "Import only" or "Import + Transcribe + Report" ? existing.NewAudioPolicy : "Import + Transcribe";
                 Save(existing);
                 return existing;
             }

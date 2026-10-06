@@ -540,7 +540,7 @@
         <!-- Main content -->
         <Grid x:Name="MainContentShell" Grid.Column="1" Margin="24,18,24,12">
           <Grid.RowDefinitions>
-            <RowDefinition Height="72"/>
+            <RowDefinition Height="88"/>
             <RowDefinition Height="*"/>
           </Grid.RowDefinitions>
 
@@ -548,6 +548,9 @@
             <StackPanel VerticalAlignment="Center">
               <TextBlock x:Name="GreetingText" Text="Welcome" FontSize="26" FontWeight="SemiBold"/>
               <TextBlock x:Name="HeaderClock" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11.5" Margin="0,5,0,0"/>
+              <TextBlock x:Name="StatusPulseText" Text="Recording: Ready • System Audio: Waiting • Intake: Disabled • Transcription: Ready • Local AI: Ready • Cloud AI: Disabled"
+                         Foreground="{DynamicResource SecondaryTextBrush}" FontSize="10.5" Margin="0,4,0,0"
+                         TextTrimming="CharacterEllipsis" AutomationProperties.Name="Live system status"/>
             </StackPanel>
           </Grid>
 
@@ -1518,6 +1521,46 @@
                     </StackPanel>
                   </Border>
                 </Grid>
+                <Border Style="{StaticResource GlassCard}" Margin="0,14,0,0" Padding="18">
+                  <StackPanel>
+                    <TextBlock Text="Processing and intake" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,14"/>
+                    <TextBlock Text="Processing mode" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <ComboBox x:Name="SettingsProcessingMode" Height="42" Margin="0,6,0,14" Style="{StaticResource ThemeComboBox}" SelectionChanged="SettingsProcessingMode_SelectionChanged">
+                      <ComboBoxItem Tag="Cloud Fast" Content="Cloud Fast"/>
+                      <ComboBoxItem Tag="Offline" Content="Offline"/>
+                      <ComboBoxItem Tag="Custom" Content="Custom"/>
+                    </ComboBox>
+                    <TextBlock Text="When a new audio file arrives" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <ComboBox x:Name="SettingsNewAudioPolicy" Height="42" Margin="0,6,0,14" Style="{StaticResource ThemeComboBox}">
+                      <ComboBoxItem Tag="Import only" Content="Import only"/>
+                      <ComboBoxItem Tag="Import + Transcribe" Content="Import + Transcribe"/>
+                      <ComboBoxItem Tag="Import + Transcribe + Report" Content="Import + Transcribe + Report"/>
+                    </ComboBox>
+                    <CheckBox x:Name="SettingsMoveInboxToProcessed" Content="Move source to Processed after successful import" Margin="0,0,0,14"/>
+                    <TextBlock Text="Transcription provider" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <ComboBox x:Name="SettingsTranscriptionProvider" Height="42" Margin="0,6,0,14" Style="{StaticResource ThemeComboBox}" FlowDirection="LeftToRight">
+                      <ComboBoxItem Tag="Local" Content="Local native-whisper"/>
+                      <ComboBoxItem Tag="Groq" Content="Groq Whisper Large V3 Turbo"/>
+                    </ComboBox>
+                    <TextBlock Text="Google Drive Desktop synced folder" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBox x:Name="SettingsInboxPath" Style="{StaticResource InputStyle}" MinHeight="42" Margin="0,6,0,10"/>
+                    <WrapPanel>
+                      <Button Content="Detect Drive" Style="{StaticResource PillButton}" Margin="0,0,8,8" Click="DetectDriveRoots_Click"/>
+                      <Button Content="Browse Folder" Style="{StaticResource PillButton}" Margin="0,0,8,8" Click="BrowseInbox_Click"/>
+                      <Button Content="Test Inbox" Style="{StaticResource PillButton}" Margin="0,0,8,8" Click="TestInbox_Click"/>
+                    </WrapPanel>
+                    <TextBlock x:Name="InboxStatusText" Text="Archestro Inbox is not configured." Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                    <TextBlock Text="Groq API key (protected for this Windows user)" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,14,0,0"/>
+                    <PasswordBox x:Name="SettingsGroqApiKey" MinHeight="42" Margin="0,6,0,10" Padding="12,8" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource PrimaryTextBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
+                    <WrapPanel>
+                      <Button Content="Test Groq" Style="{StaticResource PillButton}" Margin="0,0,8,8" Click="TestGroqConnection_Click"/>
+                      <Button Content="Remove Groq Key" Style="{StaticResource PillButton}" Margin="0,0,8,8" Click="RemoveGroqKey_Click"/>
+                    </WrapPanel>
+                    <TextBlock x:Name="GroqKeyStatus" Text="Groq is disabled until a key is saved." Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                    <TextBlock Text="Cloud Fast sends meeting audio to Groq and transcript evidence to DeepSeek. Offline keeps both speech and intelligence on this device."
+                               Margin="0,10,0,0" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </Border>
                 <Border Style="{StaticResource GlassCard}" Margin="0,14,0,0" Padding="18">
                   <StackPanel>
                     <TextBlock Text="Intelligence Provider" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,14"/>

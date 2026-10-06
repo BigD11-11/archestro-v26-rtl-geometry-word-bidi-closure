@@ -1,0 +1,12 @@
+{
+  "ProductName": "Archestro Meeting Vault",
+  "ProductSubtitle": "Private Offline Meeting Intelligence",
+  "CompanyName": "Archestro",
+  "WindowTitle": "Archestro Meeting Vault",
+  "Footer": "\u00a9 {year} Archestro. All rights reserved.",
+  "FullLogo": "Assets/ArchestroLogoFull.png",
+  "Symbol": "Assets/ArchestroSymbol.png",
+  "Watermark": "Assets/ArchestroWatermark.png",
+  "DefaultAppearance": "System",
+  "AllowCustomerBranding": true
+}

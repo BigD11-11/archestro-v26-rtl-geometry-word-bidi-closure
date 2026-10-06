@@ -4,6 +4,7 @@ public static class AppPaths
 {
     public static string Root => GetRoot();
     public static string Meetings => Path.Combine(Root, "Meetings");
+    public static string Inbox => Path.Combine(Root, "Inbox");
     public static string System => Path.Combine(Root, "System");
     public static string Logs => Path.Combine(Root, "Logs");
     public static string Database => Path.Combine(System, "meeting-vault.db");

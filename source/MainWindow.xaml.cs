@@ -75,6 +75,8 @@ public partial class MainWindow : Window
 
     private readonly DispatcherTimer _vaultBusyTimer = new() { Interval = TimeSpan.FromMilliseconds(480) };
     private readonly DispatcherTimer _settingsToastTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private readonly DispatcherTimer _statusPulseTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+    private InboxQueueService? _inboxQueue;
     private int _vaultBusyTick;
     private DateTimeOffset? _vaultBusyStarted;
     private bool _libraryAudioImportBusy;
@@ -95,6 +97,8 @@ public partial class MainWindow : Window
 
         _settings = _settingsService.LoadOrDiscover();
         _ = new AiUsageLedgerService(); // additive, transactional schema/pricing-snapshot migration on first 1.1.0 start
+        InboxQueueService.EnsureSchemaForOwnerDatabase();
+        _inboxQueue = new InboxQueueService(string.IsNullOrWhiteSpace(_settings.InboxPath) ? AppPaths.Inbox : _settings.InboxPath);
         ApplyCommercialBranding();
         ApplyPolishedAppearance(_settings.Appearance);
         _recentVisible = _settings.ShowRecentRecordings;
@@ -120,6 +124,8 @@ public partial class MainWindow : Window
         _tickerMotionTimer.Tick += (_, _) => AdvanceTranscriptionTicker();
         _vaultBusyTimer.Tick += (_, _) => AdvanceVaultBusyPulse();
         _settingsToastTimer.Tick += (_, _) => HideSettingsSaveToast();
+        _statusPulseTimer.Tick += (_, _) => RefreshStatusPulse();
+        Closed += (_, _) => { _statusPulseTimer.Stop(); _inboxQueue?.Dispose(); };
 
         if (VaultConversationList is not null)
             VaultConversationList.ItemsSource = _vaultMessages;
@@ -152,6 +158,9 @@ public partial class MainWindow : Window
         _visualTimer.Start();
         _tickerLastTick = DateTimeOffset.Now;
         _tickerMotionTimer.Start();
+        _statusPulseTimer.Start();
+        ConfigureInboxWatcher();
+        RefreshStatusPulse();
         EnsureVaultWelcomeMessage();
 
         FooterText.Text = _brand.Footer.Replace("{year}", DateTime.Now.Year.ToString());
@@ -439,6 +448,18 @@ public partial class MainWindow : Window
             SettingsGreetingName.Text = _settings.GreetingName;
             SelectCombo(SettingsAppearance, string.IsNullOrWhiteSpace(_settings.Appearance) ? "System" : _settings.Appearance);
             SelectCombo(SettingsPreferredLanguage, string.IsNullOrWhiteSpace(_settings.PreferredLanguage) ? "English" : _settings.PreferredLanguage);
+            SelectCombo(SettingsProcessingMode, string.IsNullOrWhiteSpace(_settings.ProcessingMode) ? "Offline" : _settings.ProcessingMode);
+            SelectCombo(SettingsNewAudioPolicy, string.IsNullOrWhiteSpace(_settings.NewAudioPolicy) ? "Import + Transcribe" : _settings.NewAudioPolicy);
+            SettingsMoveInboxToProcessed.IsChecked = _settings.MoveInboxFilesToProcessed;
+            SelectCombo(SettingsTranscriptionProvider, string.IsNullOrWhiteSpace(_settings.TranscriptionProvider) ? "Local" : _settings.TranscriptionProvider);
+            SettingsInboxPath.Text = _settings.InboxPath;
+            SettingsGroqApiKey.Clear();
+            GroqKeyStatus.Text = string.IsNullOrWhiteSpace(_settings.EncryptedGroqApiKey)
+                ? Ui("Groq is disabled until a key is saved.", "Groq متوقف حتى تحفظ مفتاحًا.")
+                : Ui("Groq key is protected for this Windows user.", "مفتاح Groq محفوظ محميًا لهذا المستخدم.");
+            InboxStatusText.Text = string.IsNullOrWhiteSpace(_settings.InboxPath)
+                ? Ui("Archestro Inbox is not configured.", "صندوق Archestro غير مهيأ.")
+                : Ui("Configured folder: " + _settings.InboxPath, "المجلد المحدد لصندوق Archestro.");
             SelectCombo(SettingsIntelligenceProvider, string.IsNullOrWhiteSpace(_settings.IntelligenceProvider) ? "Local" : _settings.IntelligenceProvider);
             SettingsCloudModel.Text = CloudProviderDefaults.Model(_settings.IntelligenceProvider, _settings.CloudIntelligenceModel);
             SettingsCloudApiKey.Clear();
@@ -541,6 +562,11 @@ public partial class MainWindow : Window
         _settings.GreetingName = SettingsGreetingName.Text.Trim();
         _settings.Appearance = ComboValue(SettingsAppearance, "System");
         _settings.PreferredLanguage = ComboValue(SettingsPreferredLanguage, "English");
+        _settings.ProcessingMode = ComboValue(SettingsProcessingMode, "Offline");
+        _settings.NewAudioPolicy = ComboValue(SettingsNewAudioPolicy, "Import + Transcribe");
+        _settings.MoveInboxFilesToProcessed = SettingsMoveInboxToProcessed.IsChecked == true;
+        _settings.TranscriptionProvider = ComboValue(SettingsTranscriptionProvider, "Local");
+        _settings.InboxPath = SettingsInboxPath.Text.Trim();
         _settings.IntelligenceProvider = ComboValue(SettingsIntelligenceProvider, "Local");
         _settings.CloudIntelligenceModel = SettingsCloudModel.Text.Trim();
         if (!string.IsNullOrWhiteSpace(SettingsCloudApiKey.Password))
@@ -548,10 +574,37 @@ public partial class MainWindow : Window
             _settings.EncryptedIntelligenceApiKey = CloudSecretProtector.Protect(SettingsCloudApiKey.Password);
             SettingsCloudApiKey.Clear();
         }
+        if (!string.IsNullOrWhiteSpace(SettingsGroqApiKey.Password))
+        {
+            _settings.EncryptedGroqApiKey = CloudSecretProtector.Protect(SettingsGroqApiKey.Password);
+            SettingsGroqApiKey.Clear();
+        }
+        if (_settings.ProcessingMode.Equals("Offline", StringComparison.OrdinalIgnoreCase))
+        {
+            _settings.TranscriptionProvider = "Local";
+            _settings.IntelligenceProvider = "Local";
+            _settings.CloudIntelligenceEnabled = false;
+        }
+        else if (_settings.ProcessingMode.Equals("Cloud Fast", StringComparison.OrdinalIgnoreCase))
+        {
+            _settings.TranscriptionProvider = "Groq";
+            _settings.IntelligenceProvider = "DeepSeek";
+            SettingsTranscriptionProvider.SelectedIndex = 1;
+            SelectCombo(SettingsIntelligenceProvider, "DeepSeek");
+            SettingsCloudModel.Text = CloudProviderDefaults.Model("DeepSeek");
+            _settings.CloudIntelligenceEnabled = _settings.CloudIntelligenceConsentAccepted && !string.IsNullOrWhiteSpace(_settings.EncryptedIntelligenceApiKey);
+        }
         _settings.CloudIntelligenceEnabled = SettingsCloudEnabled.IsChecked == true && _settings.CloudIntelligenceConsentAccepted;
         _settings.CloudLocalFallbackEnabled = SettingsCloudFallback.IsChecked == true;
 
+        if (_settings.ProcessingMode.Equals("Offline", StringComparison.OrdinalIgnoreCase)) _settings.CloudIntelligenceEnabled = false;
+
         _settingsService.Save(_settings);
+        SettingsGroqApiKey.Clear();
+        GroqKeyStatus.Text = string.IsNullOrWhiteSpace(_settings.EncryptedGroqApiKey)
+            ? Ui("Groq is disabled until a key is saved.", "Groq متوقف حتى تحفظ مفتاحًا.")
+            : Ui("Groq key is protected for this Windows user.", "مفتاح Groq محفوظ محميًا لهذا المستخدم.");
+        ConfigureInboxWatcher();
         ApplyPolishedAppearance(_settings.Appearance);
         ApplyLanguage(_settings.PreferredLanguage);
         UpdateThemeResolvedLabel();
@@ -559,6 +612,180 @@ public partial class MainWindow : Window
 
         ShowSettingsSaveToast(
             IsArabicLanguage ? "تم حفظ الإعدادات بنجاح." : "Settings saved successfully.");
+    }
+
+    private void SettingsProcessingMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingSettingsView || !IsLoaded) return;
+        var mode = ComboValue(SettingsProcessingMode, "Offline");
+        if (mode == "Offline")
+        {
+            SelectCombo(SettingsTranscriptionProvider, "Local");
+            SelectCombo(SettingsIntelligenceProvider, "Local");
+            SettingsCloudEnabled.IsChecked = false;
+        }
+        else if (mode == "Cloud Fast")
+        {
+            if (!EnsureCloudConsent())
+            {
+                SelectCombo(SettingsProcessingMode, "Offline");
+                SelectCombo(SettingsTranscriptionProvider, "Local");
+                SelectCombo(SettingsIntelligenceProvider, "Local");
+                SettingsCloudEnabled.IsChecked = false;
+                return;
+            }
+            SelectCombo(SettingsTranscriptionProvider, "Groq");
+            SelectCombo(SettingsIntelligenceProvider, "DeepSeek");
+            SettingsCloudModel.Text = CloudProviderDefaults.Model("DeepSeek");
+            SettingsCloudEnabled.IsChecked = true;
+        }
+    }
+
+    private async void TestGroqConnection_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var entered = SettingsGroqApiKey.Password;
+            var key = !string.IsNullOrWhiteSpace(entered) ? entered : CloudSecretProtector.Unprotect(_settings.EncryptedGroqApiKey);
+            if (string.IsNullOrWhiteSpace(key)) { GroqKeyStatus.Text = Ui("Enter a Groq key first. No network request was sent.", "أدخل مفتاح Groq أولًا. لم يُرسل طلب للشبكة."); return; }
+            await new GroqTranscriptionService().TestConnectionAsync(key);
+            if (!string.IsNullOrWhiteSpace(entered)) _settings.EncryptedGroqApiKey = CloudSecretProtector.Protect(entered);
+            _settingsService.Save(_settings); SettingsGroqApiKey.Clear();
+            GroqKeyStatus.Text = Ui("Groq connection succeeded. Key is protected for this Windows user.", "تم الاتصال بـGroq وحُفظ المفتاح محميًا.");
+        }
+        catch (Exception ex) { SettingsGroqApiKey.Clear(); GroqKeyStatus.Text = Ui("Groq connection failed: " + ex.GetType().Name, "تعذر الاتصال بـGroq."); }
+        RefreshStatusPulse();
+    }
+
+    private void RemoveGroqKey_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.EncryptedGroqApiKey = string.Empty; SettingsGroqApiKey.Clear(); _settingsService.Save(_settings);
+        GroqKeyStatus.Text = Ui("No Groq key saved.", "لم يتم حفظ مفتاح Groq."); RefreshStatusPulse();
+    }
+
+    private void DetectDriveRoots_Click(object sender, RoutedEventArgs e)
+    {
+        var roots = GoogleDriveDiscovery.FindRoots();
+        if (roots.Count == 0)
+        {
+            InboxStatusText.Text = Ui("Google Drive for Desktop was not detected. Browse to a local synced folder or choose a generic watch folder.",
+                "لم يتم العثور على Google Drive لسطح المكتب. استعرض مجلدًا متزامنًا أو اختر مجلد مراقبة محليًا.");
+            return;
+        }
+        var root = roots.Count == 1 ? roots[0] : ChooseInboxRoot(roots);
+        if (string.IsNullOrWhiteSpace(root)) return;
+        var folder = Path.Combine(root, "Archestro Inbox");
+        Directory.CreateDirectory(folder); SettingsInboxPath.Text = folder;
+        InboxStatusText.Text = Ui("Archestro Inbox folder created. Save settings and test the inbox.", "تم إنشاء مجلد صندوق Archestro. احفظ الإعدادات واختبره.");
+    }
+
+    private string? ChooseInboxRoot(IReadOnlyList<string> roots)
+    {
+        var dialog = new Window { Title = Ui("Choose Google Drive folder", "اختر مجلد Google Drive"), Owner = this,
+            Width = 520, Height = 190, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.NoResize,
+            Background = (Brush)FindResource("SurfaceBrush"), Foreground = (Brush)FindResource("PrimaryTextBrush") };
+        var stack = new StackPanel { Margin = new Thickness(18) };
+        var choice = new ComboBox { ItemsSource = roots, SelectedIndex = 0, MinHeight = 36 };
+        var button = new Button { Content = Ui("Use this folder", "استخدم هذا المجلد"), Margin = new Thickness(0, 14, 0, 0), Padding = new Thickness(12, 8, 12, 8), IsDefault = true };
+        button.Click += (_, _) => dialog.DialogResult = true; stack.Children.Add(choice); stack.Children.Add(button); dialog.Content = stack;
+        return dialog.ShowDialog() == true ? choice.SelectedItem?.ToString() : null;
+    }
+
+    private void BrowseInbox_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog { Title = Ui("Choose or create an Archestro Inbox folder", "اختر أو أنشئ مجلد صندوق Archestro") };
+        if (dialog.ShowDialog(this) != true) return;
+        var selected = dialog.FolderName;
+        var inbox = Path.GetFileName(selected).Equals("Archestro Inbox", StringComparison.OrdinalIgnoreCase)
+            ? selected : Path.Combine(selected, "Archestro Inbox");
+        Directory.CreateDirectory(inbox); SettingsInboxPath.Text = inbox;
+        InboxStatusText.Text = Ui("Archestro Inbox folder selected.", "تم اختيار مجلد صندوق Archestro.");
+    }
+
+    private void TestInbox_Click(object sender, RoutedEventArgs e)
+    {
+        var folder = SettingsInboxPath.Text.Trim();
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+        {
+            InboxStatusText.Text = Ui("Inbox folder is missing. Create or browse to a folder first.", "مجلد الصندوق غير موجود. أنشئ مجلدًا أو استعرض مجلدًا أولًا."); return;
+        }
+        using var test = new InboxQueueService(folder);
+        _settings.InboxPath = folder; _settingsService.Save(_settings); ConfigureInboxWatcher();
+        InboxStatusText.Text = Ui("Archestro Inbox Ready • watcher monitors this folder only.", "صندوق Archestro جاهز • تتم مراقبة هذا المجلد فقط.");
+        RefreshStatusPulse();
+    }
+
+    private void ConfigureInboxWatcher()
+    {
+        _inboxQueue?.Dispose();
+        if (string.IsNullOrWhiteSpace(_settings.InboxPath) || !Directory.Exists(_settings.InboxPath))
+        {
+            _inboxQueue = null; RefreshStatusPulse(); return;
+        }
+        _inboxQueue = new InboxQueueService(_settings.InboxPath);
+        _inboxQueue.Start(HandleInboxIncomingAsync);
+        RefreshStatusPulse();
+    }
+
+    private async Task HandleInboxIncomingAsync(IntakeJob job)
+    {
+        try
+        {
+            _inboxQueue?.SetState(job.Fingerprint, "Processing");
+            var meeting = await new MeetingImportService(_repo).ImportAudioFileAsync(job.SourcePath, _settings, cancellationToken: CancellationToken.None);
+            _inboxQueue?.SetState(job.Fingerprint, "Completed", meeting.Id);
+            if (!_settings.NewAudioPolicy.Equals("Import only", StringComparison.OrdinalIgnoreCase))
+            {
+                await _transcription.TranscribeAsync(meeting, CancellationToken.None, startImmediately: true);
+                if (_settings.NewAudioPolicy.Equals("Import + Transcribe + Report", StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(meeting.TranscriptPath) && File.Exists(meeting.TranscriptPath))
+                {
+                    try { await _meetingIntelligence.AnalyzeMeetingAsync(meeting, _settings.DefaultMeetingMode,
+                        CancellationToken.None, reportLanguage: _settings.PreferredLanguage); }
+                    catch (Exception reportError)
+                    {
+                        await Dispatcher.InvokeAsync(() => InboxStatusText.Text = Ui(
+                            "Audio was imported and transcribed; automatic report needs attention (" + reportError.GetType().Name + ").",
+                            "تم استيراد الصوت وتفريغه؛ يحتاج التقرير التلقائي إلى مراجعة."));
+                    }
+                }
+            }
+            if (_settings.MoveInboxFilesToProcessed && File.Exists(job.SourcePath))
+            {
+                var done = Path.Combine(_settings.InboxPath, "Processed"); Directory.CreateDirectory(done);
+                var destination = Path.Combine(done, Path.GetFileName(job.SourcePath));
+                if (!File.Exists(destination)) File.Move(job.SourcePath, destination);
+            }
+            await Dispatcher.InvokeAsync(() => { RefreshAll(); RefreshStatusPulse(); });
+        }
+        catch (Exception ex)
+        {
+            _inboxQueue?.SetState(job.Fingerprint, "Needs Attention", sanitizedError: ex.GetType().Name);
+            await Dispatcher.InvokeAsync(() => { InboxStatusText.Text = Ui("Intake needs attention. Source audio remains in the inbox.", "يحتاج الاستيراد إلى مراجعة. بقي الصوت الأصلي في الصندوق."); RefreshStatusPulse(); });
+        }
+    }
+
+    private void RefreshStatusPulse()
+    {
+        if (StatusPulseText is null || _settings is null) return;
+        var signals = V30SystemStatus.Snapshot(_settings, _recording?.IsRecording == true,
+            _latestSystemLevel > 0.01, _audioMeter.MicrophoneReady, _audioMeter.SystemAudioReady,
+            _audioMeter.MicrophoneDeviceName, _audioMeter.SystemAudioDeviceName, _inboxQueue?.IsRunning == true);
+        string label(StatusSignal signal)
+        {
+            var name = IsArabicLanguage ? signal.Name switch
+            { "Recording" => "التسجيل", "System Audio" => "صوت الجهاز", "Intake" => "الاستقبال", "Transcription" => "تحويل الصوت إلى نص", "Local AI" => "الذكاء المحلي", "Cloud AI" => "الذكاء السحابي", _ => signal.Name }
+                : signal.Name;
+            var state = IsArabicLanguage ? signal.State switch
+            { "Ready" => "جاهز", "Working" => "يعمل الآن", "Waiting" => "بانتظار ملف", "Offline" => "غير متصل", "Disabled" => "متوقف", "Needs Attention" => "يحتاج انتباه", _ => signal.State }
+                : signal.State;
+            return name + ": " + state;
+        }
+        StatusPulseText.Text = string.Join("  •  ", signals.Select(label));
+        var hasFailure = signals.Any(x => x.State == "Needs Attention");
+        var active = signals.Any(x => x.State == "Working");
+        StatusPulseText.Foreground = (Brush)FindResource(hasFailure ? "RedBrush" : active ? "GreenBrush" : "SecondaryTextBrush");
+        StatusPulseText.ToolTip = string.Join(Environment.NewLine, signals.Select(x => $"{x.Name}: {x.State} — {x.Detail}"));
     }
 
     private void SettingsIntelligenceProvider_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -591,9 +818,9 @@ public partial class MainWindow : Window
     private bool EnsureCloudConsent()
     {
         if (_settings.CloudIntelligenceConsentAccepted) return true;
-        const string disclosure = "Cloud mode sends selected meeting transcript/evidence text to the chosen provider. Audio is not uploaded by default.";
+        const string disclosure = "Cloud Fast uploads selected meeting audio to Groq Whisper and transcript/evidence to DeepSeek. Custom mode sends content only to providers you select. Offline sends no meeting content to cloud.";
         var answer = MessageBox.Show(disclosure + "\n\n" +
-            (IsArabicLanguage ? "هل توافق على إرسال النص والأدلة المحددة إلى المزود السحابي؟ لن يُرفع الصوت." : "Do you consent to sending selected text and evidence to the cloud provider? Audio will not be uploaded."),
+            (IsArabicLanguage ? "هل توافق على إرسال صوت الاجتماع إلى Groq والنص والأدلة إلى DeepSeek عند اختيار Cloud Fast؟ الوضع المحلي لا يرسل محتوى للاستخدام السحابي." : "Do you consent to sending meeting audio to Groq and transcript/evidence to DeepSeek when Cloud Fast is selected? Offline sends no meeting content."),
             Ui("Cloud privacy consent", "موافقة الخصوصية للسحابة"), MessageBoxButton.YesNo, MessageBoxImage.Information);
         if (answer != MessageBoxResult.Yes) return false;
         _settings.CloudIntelligenceConsentAccepted = true;
@@ -666,6 +893,26 @@ public partial class MainWindow : Window
     private static readonly IReadOnlyDictionary<string, string> ArabicUi =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["Processing and intake"] = "وضع المعالجة وصندوق الاستقبال",
+            ["Processing mode"] = "وضع المعالجة",
+            ["Cloud Fast"] = "سحابي سريع",
+            ["Offline"] = "محلي بالكامل",
+            ["Custom"] = "مخصص",
+            ["When a new audio file arrives"] = "عند وصول ملف صوتي جديد",
+            ["Import only"] = "استيراد فقط",
+            ["Import + Transcribe"] = "استيراد وتفريغ",
+            ["Import + Transcribe + Report"] = "استيراد وتفريغ وتقرير",
+            ["Transcription provider"] = "مزود تحويل الصوت إلى نص",
+            ["Local native-whisper"] = "محلي native-whisper",
+            ["Groq Whisper Large V3 Turbo"] = "Groq Whisper Large V3 Turbo",
+            ["Google Drive Desktop synced folder"] = "مجلد Google Drive Desktop المتزامن",
+            ["Detect Drive"] = "اكتشاف Drive",
+            ["Browse Folder"] = "استعراض مجلد",
+            ["Test Inbox"] = "اختبار صندوق الاستقبال",
+            ["Move source to Processed after successful import"] = "انقل الملف إلى Processed بعد نجاح الاستيراد",
+            ["Groq API key (protected for this Windows user)"] = "مفتاح Groq (محفوظ محميًا لمستخدم Windows الحالي)",
+            ["Test Groq"] = "اختبار Groq",
+            ["Remove Groq Key"] = "إزالة مفتاح Groq",
             ["Home"] = "الرئيسية",
             ["Library"] = "المكتبة",
             ["Search"] = "البحث",
@@ -852,8 +1099,12 @@ public partial class MainWindow : Window
         TranslateComboItems(SettingsAppearance, arabic);
         TranslateComboItems(SettingsPreferredLanguage, arabic);
         TranslateComboItems(SettingsIntelligenceProvider, arabic);
+        TranslateComboItems(SettingsProcessingMode, arabic);
+        TranslateComboItems(SettingsNewAudioPolicy, arabic);
+        TranslateComboItems(SettingsTranscriptionProvider, arabic);
         SettingsCloudEnabled.Content = arabic ? ArabicUi["Enable cloud acceleration"] : "Enable cloud acceleration";
         SettingsCloudFallback.Content = arabic ? ArabicUi["Use Local AI if the selected cloud provider is unavailable"] : "Use Local AI if the selected cloud provider is unavailable";
+        SettingsMoveInboxToProcessed.Content = arabic ? ArabicUi["Move source to Processed after successful import"] : "Move source to Processed after successful import";
         LocalizeCanonicalComboItems();
         ApplyLanguageSensitiveInputDirection(this);
 
@@ -902,7 +1153,7 @@ public partial class MainWindow : Window
             var child = VisualTreeHelper.GetChild(root, i);
             if (child is TextBox box)
             {
-                var languageId = ReferenceEquals(box, SettingsCloudModel) ? FlowDirection.LeftToRight : (IsArabicLanguage ? FlowDirection.RightToLeft : FlowDirection.LeftToRight);
+                var languageId = ReferenceEquals(box, SettingsCloudModel) || ReferenceEquals(box, SettingsInboxPath) ? FlowDirection.LeftToRight : (IsArabicLanguage ? FlowDirection.RightToLeft : FlowDirection.LeftToRight);
                 box.FlowDirection = languageId;
                 box.TextAlignment = languageId == FlowDirection.RightToLeft ? TextAlignment.Right : TextAlignment.Left;
                 box.CaretBrush = (Brush)FindResource("PrimaryTextBrush");

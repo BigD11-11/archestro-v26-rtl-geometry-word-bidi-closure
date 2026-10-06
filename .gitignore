@@ -1,0 +1,4 @@
+# Build outputs
+source/bin/
+source/obj/
+**/*.user
