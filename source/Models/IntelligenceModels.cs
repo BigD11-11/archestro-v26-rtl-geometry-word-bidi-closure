@@ -29,6 +29,7 @@ public sealed class IntelligenceItem
 
 public sealed class MeetingIntelligenceReport
 {
+    public string ReportId { get; set; } = Guid.NewGuid().ToString("N");
     public string MeetingId { get; set; } = "";
     public string MeetingMode { get; set; } = "General";
     public DateTimeOffset GeneratedLocal { get; set; } = DateTimeOffset.Now;

@@ -86,6 +86,7 @@ public partial class IntelligenceWindow : Window
         _report = _service.LoadReport(_meeting);
         if (_report is null)
         {
+            ReportUsageText.Text = T("No AI operation has been recorded for this meeting.", "لا توجد عملية ذكاء اصطناعي مسجلة لهذا الاجتماع.");
             SummaryText.Text = T(
                 "Generate a polished meeting report with executive summary, decisions, actions, participants and evidence.",
                 "أنشئ تقرير اجتماع احترافيًا يشمل الملخص التنفيذي والقرارات والمهام والمشاركين والأدلة.");
@@ -170,6 +171,8 @@ public partial class IntelligenceWindow : Window
             : T("Meeting report ready • processed locally", "تقرير الاجتماع جاهز • تمت المعالجة محليًا");
         ExportWordButton.IsEnabled = !_busy && !_report.NeedsRefresh;
         OpenReportFolderButton.IsEnabled = true;
+        try { ReportUsageText.Text = new AiUsageLedgerService().SummaryForMeeting(_meeting.Id, _report.ReportId); }
+        catch (Exception ex) { ReportUsageText.Text = "Usage details unavailable: " + ex.GetType().Name; }
         UpdateGenerateButtonCopy();
     }
 

@@ -508,6 +508,13 @@
               </StackPanel>
             </Border>
 
+            <Expander x:Name="ReportUsageExpander" Header="AI Usage &amp; Cost / استخدام وتكلفة الذكاء" Margin="0,0,0,12"
+                      Background="{DynamicResource PanelBrush}" Foreground="{DynamicResource PrimaryTextBrush}">
+              <Border Style="{StaticResource IntelCard}" Margin="0,8,0,0">
+                <TextBlock x:Name="ReportUsageText" Text="No AI usage recorded." TextWrapping="Wrap"/>
+              </Border>
+            </Expander>
+
             <Grid x:Name="ReportSectionGrid" FlowDirection="LeftToRight">
               <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
               <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>

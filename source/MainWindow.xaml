@@ -1554,6 +1554,20 @@
                 </Border>
                 <Border Style="{StaticResource GlassCard}" Margin="0,14,0,0" Padding="16">
                   <StackPanel>
+                    <TextBlock Text="AI Usage &amp; Cost / استخدام وتكلفة الذكاء" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="SettingsAiUsageText" Text="Usage ledger is ready." Margin="0,10,0,12"
+                               Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                    <WrapPanel>
+                      <Button Content="Refresh totals" Style="{StaticResource PillButton}" Padding="14,8" Margin="0,0,8,0" Click="RefreshAiUsage_Click"/>
+                      <Button Content="Export metadata CSV" Style="{StaticResource PillButton}" Padding="14,8" Click="ExportAiUsage_Click"/>
+                      <Button Content="Import pricing snapshot JSON" Style="{StaticResource PillButton}" Padding="14,8" Margin="8,0,0,0" Click="ImportAiPricing_Click"/>
+                    </WrapPanel>
+                    <TextBlock Text="Calculated API cost uses immutable provider price and USD/SAR snapshots. Prompts, transcripts, and responses are never placed in this ledger."
+                               Margin="0,10,0,0" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </Border>
+                <Border Style="{StaticResource GlassCard}" Margin="0,14,0,0" Padding="16">
+                  <StackPanel>
                     <TextBlock Text="About Archestro Meeting Vault" FontSize="16" FontWeight="SemiBold"/>
                     <TextBlock Text="Customer version" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,10,0,2"/>
                     <TextBlock x:Name="SettingsProductVersionText" Text="1.0.0" FontSize="18" FontWeight="SemiBold"

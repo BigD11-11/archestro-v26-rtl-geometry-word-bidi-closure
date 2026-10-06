@@ -55,16 +55,35 @@ public sealed class MeetingIntelligenceService
         requestTimeout.CancelAfter(_reportRequestTimeout);
         var clock = Stopwatch.StartNew();
         var provider = _reportModelOverride is not null || !_providerRouter.IsCloudSelected ? "local" : "cloud";
+        var usageContext = AiUsageContext.Current;
+        var operation = diagnosticStage.Contains("extract", StringComparison.OrdinalIgnoreCase) ? "meeting-report-extraction"
+            : diagnosticStage.Contains("synth", StringComparison.OrdinalIgnoreCase) ? "meeting-report-synthesis"
+            : diagnosticStage.Contains("repair", StringComparison.OrdinalIgnoreCase) || diagnosticStage.Contains("json", StringComparison.OrdinalIgnoreCase) ? "meeting-report-json-repair"
+            : diagnosticStage.StartsWith("ask", StringComparison.OrdinalIgnoreCase) ? usageContext.Operation
+            : string.IsNullOrWhiteSpace(usageContext.Operation) ? "meeting-report" : usageContext.Operation;
         WriteReportDiagnostic("model-request-start", $"stage={diagnosticStage}; provider={provider}; maxTokens={maxTokens}; promptCharacters={systemPrompt.Length + userPrompt.Length}");
         try
         {
-            var providerRequest = _reportModelOverride is not null
-                ? _reportModelOverride(systemPrompt, userPrompt, maxTokens, requestTimeout.Token, contextTokensOverride, preferJsonObject)
-                : !_providerRouter.IsCloudSelected
-                    ? _llm.GenerateAsync(systemPrompt, userPrompt, maxTokens, requestTimeout.Token,
-                        contextTokensOverride, preferJsonObject)
-                    : GenerateCloudAsync(systemPrompt, userPrompt, maxTokens, requestTimeout.Token, preferJsonObject, contextTokensOverride);
-            var result = await providerRequest.WaitAsync(requestTimeout.Token).ConfigureAwait(false);
+            string result;
+            if (_reportModelOverride is not null)
+                result = await _reportModelOverride(systemPrompt, userPrompt, maxTokens, requestTimeout.Token, contextTokensOverride, preferJsonObject).WaitAsync(requestTimeout.Token).ConfigureAwait(false);
+            else if (!_providerRouter.IsCloudSelected)
+            {
+                result = await _llm.GenerateAsync(systemPrompt, userPrompt, maxTokens, requestTimeout.Token, contextTokensOverride, preferJsonObject).WaitAsync(requestTimeout.Token).ConfigureAwait(false);
+                new AiUsageLedgerService().Record(new(Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow, usageContext.MeetingId,
+                    usageContext.ReportId, "Local", _settings.IntelligenceModel, operation, null, null, null, null, null, null, null,
+                    clock.ElapsedMilliseconds, true, null, 0, 0, "LOCAL_ZERO"));
+            }
+            else
+            {
+                var generated = await _providerRouter.GenerateAsync(systemPrompt, userPrompt, maxTokens, requestTimeout.Token,
+                    structured: preferJsonObject, contextTokensOverride: contextTokensOverride).WaitAsync(requestTimeout.Token).ConfigureAwait(false);
+                result = generated.Text;
+                new AiUsageLedgerService().Record(new(Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow, usageContext.MeetingId,
+                    usageContext.ReportId, generated.Provider, generated.Model, operation, generated.RequestId, generated.InputTokens,
+                    generated.CacheHitTokens, generated.CacheMissTokens, generated.OutputTokens, generated.ReasoningTokens,
+                    generated.TotalTokens, clock.ElapsedMilliseconds, true, null, null, null, ""));
+            }
             WriteReportDiagnostic("model-request-complete", $"stage={diagnosticStage}; elapsedMs={clock.ElapsedMilliseconds}; responseCharacters={result.Length}");
             return result;
         }
@@ -76,6 +95,14 @@ public sealed class MeetingIntelligenceService
         }
         catch (Exception ex)
         {
+            if (_reportModelOverride is null)
+            {
+                try { new AiUsageLedgerService().Record(new(Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow, usageContext.MeetingId,
+                    usageContext.ReportId, _providerRouter.IsCloudSelected ? _settings.IntelligenceProvider : "Local",
+                    _providerRouter.IsCloudSelected ? CloudProviderDefaults.Model(_settings.IntelligenceProvider, _settings.CloudIntelligenceModel) : _settings.IntelligenceModel,
+                    operation, null, null, null, null, null, null, null, clock.ElapsedMilliseconds, false, null, null, null, "RATE_UNKNOWN"), ex.GetType().Name); }
+                catch { }
+            }
             WriteReportDiagnostic("model-request-failed", $"stage={diagnosticStage}; elapsedMs={clock.ElapsedMilliseconds}; errorType={ex.GetType().Name}");
             throw;
         }
@@ -137,6 +164,8 @@ public sealed class MeetingIntelligenceService
         IProgress<MeetingReportProgress>? progress,
         string? reportLanguage)
     {
+        var reportId = Guid.NewGuid().ToString("N");
+        using var usageScope = AiUsageContext.Push(meeting.Id, reportId, "meeting-report");
         var reportClock = Stopwatch.StartNew();
         var evidence = BuildMeetingEvidence(meeting, maxLines: 900);
         if (evidence.Count == 0)
@@ -329,6 +358,7 @@ public sealed class MeetingIntelligenceService
 
         var report = new MeetingIntelligenceReport
         {
+            ReportId = reportId,
             MeetingId = meeting.Id,
             MeetingMode = NormalizeMode(mode),
             GeneratedLocal = DateTimeOffset.Now,
@@ -1004,6 +1034,9 @@ Return valid JSON only. No markdown. No reasoning.
         IReadOnlyList<EvidenceRef> evidence,
         CancellationToken cancellationToken)
     {
+        var meetingIds = evidence.Select(x => x.MeetingId).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal).Take(2).ToArray();
+        using var usageScope = AiUsageContext.Push(meetingIds.Length == 1 ? meetingIds[0] : null, null,
+            meetingIds.Length == 1 ? "ask-this-meeting" : "ask-my-vault");
         var languageRule = ContainsArabic(question)
             ? "Answer in clear Arabic. Keep genuine English technical/product terms in English. Do not transliterate Arabic into Latin letters."
             : "Answer in clear English.";

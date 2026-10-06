@@ -9,11 +9,11 @@
     <AssemblyName>Archestro.MeetingVault</AssemblyName>
     <RootNamespace>Archestro.MeetingVault</RootNamespace>
     <ApplicationIcon>Assets\ArchestroMeetingVaultIcon.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
-    <ProductVersion>1.0.0</ProductVersion>
-    <FileVersion>1.0.0.0</FileVersion>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <InternalBuild Condition="'$(InternalBuild)' == ''">V28R3</InternalBuild>
+    <Version>1.1.0</Version>
+    <ProductVersion>1.1.0</ProductVersion>
+    <FileVersion>1.1.0.0</FileVersion>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <InternalBuild Condition="'$(InternalBuild)' == ''">V29</InternalBuild>
     <InformationalVersion Condition="'$(InformationalVersion)' == ''">$(Version)+$(InternalBuild)</InformationalVersion>
     <Company>Archestro</Company>
     <Product>Archestro Meeting Vault</Product>

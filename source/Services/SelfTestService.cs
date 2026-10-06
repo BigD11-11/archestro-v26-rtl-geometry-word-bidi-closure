@@ -11,6 +11,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Diagnostics;
 using Archestro.MeetingVault.Dialogs;
+using Microsoft.Data.Sqlite;
 
 namespace Archestro.MeetingVault.Services;
 
@@ -219,6 +220,12 @@ public static class SelfTestService
     {
         AppPaths.Ensure();
 
+        if (SystemQaService.ValidateEngineIdentity("native-whisper") != "native-whisper" ||
+            SystemQaService.ValidateEngineIdentity("faster-whisper") != "faster-whisper")
+            throw new InvalidOperationException("System QA engine identity regression fixture failed.");
+        try { SystemQaService.ValidateEngineIdentity("unknown-engine"); throw new InvalidOperationException("System QA accepted an unsupported engine identity."); }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Unsupported configured transcription engine", StringComparison.Ordinal)) { }
+
         var greeting1 = GreetingService.GetGreeting(new DateTimeOffset(2026,8,17,7,0,0,TimeSpan.FromHours(3)), "Test User");
         var greeting2 = GreetingService.GetGreeting(new DateTimeOffset(2026,8,17,14,0,0,TimeSpan.FromHours(3)), "Test User");
         if (!greeting1.Contains("Good morning") ||
@@ -249,6 +256,21 @@ public static class SelfTestService
         };
 
         repo.Upsert(record, "Contract pricing follow up and operations.");
+        var usage = new AiUsageLedgerService(Path.Combine(testRoot, "selftest.db"));
+        usage.Record(new("selftest-local", DateTimeOffset.UtcNow, record.Id, "r-local", "Local", "Qwen3-4B-Q4_K_M", "meeting-report-synthesis", null, null, null, null, null, null, null, 500, true, null, 0, 0, "LOCAL_ZERO"));
+        usage.Record(new("selftest-cloud", new DateTimeOffset(2026,10,6,4,30,0,TimeSpan.Zero), record.Id, "r-cloud", "DeepSeek", "deepseek-flash", "ask-this-meeting", "fixture-response-id", 100, 40, 60, 20, 0, 120, 250, true, null, null, null, ""));
+        var usageSummary = usage.SummaryForMeeting(record.Id, "r-cloud");
+        if (!usageSummary.Contains("fixture-response-id", StringComparison.Ordinal) && !usageSummary.Contains("DeepSeek/deepseek-flash", StringComparison.Ordinal))
+            throw new InvalidOperationException("Per-meeting AI usage ledger fixture failed.");
+        if (!usageSummary.Contains("0.000021", StringComparison.Ordinal))
+            throw new InvalidOperationException("DeepSeek immutable-price calculation fixture failed.");
+        using (var usageDb = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = Path.Combine(testRoot, "selftest.db") }.ToString()))
+        {
+            usageDb.Open(); using var columns = usageDb.CreateCommand(); columns.CommandText = "PRAGMA table_info(ai_usage_ledger);";
+            using var reader = columns.ExecuteReader(); var names = new List<string>(); while(reader.Read()) names.Add(reader.GetString(1));
+            if (names.Any(name => name.Contains("prompt", StringComparison.OrdinalIgnoreCase) || name.Contains("transcript", StringComparison.OrdinalIgnoreCase) || name.Contains("response_text", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("AI usage ledger contains a content-bearing field.");
+        }
         var hits = repo.Search("pricing", "Contracts", 10);
         if (!hits.Any(x => x.Id == record.Id))
             throw new InvalidOperationException("SQLite FTS search self-test failed.");

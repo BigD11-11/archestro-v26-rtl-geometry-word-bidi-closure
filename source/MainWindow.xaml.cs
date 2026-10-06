@@ -93,6 +93,7 @@ public partial class MainWindow : Window
             $"{AppBuildIdentity.InternalBuild} • {AppBuildIdentity.SourceCommit} • {AppBuildIdentity.BuildTimestampUtc}";
 
         _settings = _settingsService.LoadOrDiscover();
+        _ = new AiUsageLedgerService(); // additive, transactional schema/pricing-snapshot migration on first 1.1.0 start
         ApplyCommercialBranding();
         ApplyPolishedAppearance(_settings.Appearance);
         _recentVisible = _settings.ShowRecentRecordings;
@@ -474,7 +475,32 @@ public partial class MainWindow : Window
         SettingsView.Visibility = Visibility.Visible;
         SetActiveNav("Settings");
         LoadCommercialSettingsView();
+        RefreshAiUsageSummary();
         ApplyLanguage(_settings.PreferredLanguage);
+    }
+
+    private void RefreshAiUsage_Click(object sender, RoutedEventArgs e) => RefreshAiUsageSummary();
+
+    private void RefreshAiUsageSummary()
+    {
+        try { SettingsAiUsageText.Text = new AiUsageLedgerService().Dashboard(); }
+        catch (Exception ex) { SettingsAiUsageText.Text = "Usage summary unavailable: " + ex.GetType().Name; }
+    }
+
+    private void ExportAiUsage_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog { Title = "Export AI usage metadata", Filter = "CSV files (*.csv)|*.csv", FileName = "ai-usage-metadata.csv" };
+        if (dialog.ShowDialog(this) != true) return;
+        try { File.WriteAllText(dialog.FileName, new AiUsageLedgerService().ExportMetadataCsv(), new System.Text.UTF8Encoding(true)); }
+        catch (Exception ex) { MessageBox.Show(this, "Export failed: " + ex.Message, "AI Usage & Cost", MessageBoxButton.OK, MessageBoxImage.Error); }
+    }
+
+    private void ImportAiPricing_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog { Title = "Import immutable AI pricing snapshot", Filter = "JSON files (*.json)|*.json" };
+        if (dialog.ShowDialog(this) != true) return;
+        try { new AiUsageLedgerService().ImportPricingSnapshot(File.ReadAllText(dialog.FileName)); RefreshAiUsageSummary(); }
+        catch (Exception ex) { MessageBox.Show(this, "Pricing snapshot was not imported: " + ex.Message, "AI Usage & Cost", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
     private void SaveCommercialSettings_Click(object sender, RoutedEventArgs e)

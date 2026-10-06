@@ -9,7 +9,8 @@ using Archestro.MeetingVault.Models;
 namespace Archestro.MeetingVault.Services;
 
 public sealed record IntelligenceProviderMetadata(string Id, string DisplayName, string DefaultModel, bool SupportsStructuredOutput);
-public sealed record IntelligenceGenerationResult(string Text, string Provider, string Model, int? InputTokens, int? OutputTokens, int RequestCount = 1);
+public sealed record IntelligenceGenerationResult(string Text, string Provider, string Model, int? InputTokens, int? OutputTokens, int RequestCount = 1,
+    string? RequestId = null, int? CacheHitTokens = null, int? CacheMissTokens = null, int? TotalTokens = null, int? ReasoningTokens = null);
 public sealed record ProviderConnectionResult(bool Success, string Provider, string Model, string Message);
 
 public interface IIntelligenceProvider
@@ -133,7 +134,16 @@ public sealed class OpenAiCompatibleIntelligenceProvider : IIntelligenceProvider
                 if (string.IsNullOrWhiteSpace(content)) throw new ProviderRequestException("The provider returned an empty response.");
                 int? input = ReadUsage(root, "prompt_tokens", "input_tokens");
                 int? output = ReadUsage(root, "completion_tokens", "output_tokens");
-                return new(content, Metadata.Id, (string.IsNullOrWhiteSpace(model) ? Metadata.DefaultModel : model), input, output, attempt + 1);
+                var usage = root.TryGetProperty("usage", out var usageNode) ? usageNode : default;
+                var hit = ReadUsage(usage, "prompt_cache_hit_tokens", "cached_tokens");
+                var miss = ReadUsage(usage, "prompt_cache_miss_tokens");
+                var total = ReadUsage(usage, "total_tokens");
+                int? reasoning = null;
+                if (usage.ValueKind == JsonValueKind.Object && usage.TryGetProperty("completion_tokens_details", out var completionDetails))
+                    reasoning = ReadUsage(completionDetails, "reasoning_tokens");
+                var requestId = root.TryGetProperty("id", out var idNode) ? idNode.GetString() : null;
+                return new(content, Metadata.Id, (string.IsNullOrWhiteSpace(model) ? Metadata.DefaultModel : model), input, output, attempt + 1,
+                    requestId, hit, miss, total, reasoning);
             }
         }
         throw new ProviderRequestException("The provider request did not complete.");
@@ -153,7 +163,9 @@ public sealed class OpenAiCompatibleIntelligenceProvider : IIntelligenceProvider
 
     private static int? ReadUsage(JsonElement root, params string[] keys)
     {
-        if (!root.TryGetProperty("usage", out var usage)) return null;
+        var usage = root;
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("usage", out var nested)) usage = nested;
+        if (usage.ValueKind != JsonValueKind.Object) return null;
         foreach (var key in keys) if (usage.TryGetProperty(key, out var value) && value.TryGetInt32(out var count)) return count;
         return null;
     }
