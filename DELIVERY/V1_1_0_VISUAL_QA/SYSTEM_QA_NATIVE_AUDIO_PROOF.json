@@ -1,15 +1,18 @@
 {
   "status": "PASS",
+  "completed": "2026-10-06T09:42:27+03:00",
   "customerVersion": "1.1.0",
   "internalBuild": "V29",
   "sourceCommit": "d80fc3a0638888978c5628f252ea87ad353b025c",
+  "testedBinary": "fully installed customer package executable",
+  "qaData": "isolated QA data root; owner meetings untouched",
   "engine": "native-whisper",
+  "realEngineInvoked": true,
   "microphone": "PASS",
   "systemLoopback": "PASS",
   "startStopPauseResume": "PASS",
   "losslessMasterAndM4aWorkingCopy": "PASS",
   "nativeRuntimeModelDependencies": "PASS",
   "sqlitePersistence": "PASS",
-  "runtimePath": "Installed/_runtime/TranscriptionNative/v1",
-  "qaRunRoot": "clean final package install"
+  "result": true
 }

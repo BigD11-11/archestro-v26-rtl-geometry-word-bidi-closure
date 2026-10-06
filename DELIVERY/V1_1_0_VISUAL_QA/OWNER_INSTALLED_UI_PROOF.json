@@ -3,7 +3,7 @@
   "internalBuild": "V29",
   "sourceCommit": "d80fc3a0638888978c5628f252ea87ad353b025c",
   "startup": "READY",
-  "launch": "Start Menu shortcut",
+  "launch": "Start Menu shortcut after full package install",
   "desktopShortcutTargetValid": true,
   "startMenuShortcutTargetValid": true,
   "providerDefault": "محلي (افتراضي)",
