@@ -1552,6 +1552,18 @@
                     </WrapPanel>
                   </StackPanel>
                 </Border>
+                <Border Style="{StaticResource GlassCard}" Margin="0,14,0,0" Padding="16">
+                  <StackPanel>
+                    <TextBlock Text="About Archestro Meeting Vault" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBlock Text="Customer version" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,10,0,2"/>
+                    <TextBlock x:Name="SettingsProductVersionText" Text="1.0.0" FontSize="18" FontWeight="SemiBold"
+                               AutomationProperties.Name="Customer product version"/>
+                    <TextBlock Text="Internal build and source" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,10,0,2"/>
+                    <TextBlock x:Name="SettingsBuildIdentityText" Text="Internal build pending" FontSize="10.5"
+                               AutomationProperties.Name="Internal build, source commit, and build timestamp"
+                               TextWrapping="Wrap"/>
+                  </StackPanel>
+                </Border>
               </StackPanel>
             </ScrollViewer>
           </Grid>
@@ -1574,4 +1586,3 @@
     </Grid>
   </Grid>
 </Window>
-

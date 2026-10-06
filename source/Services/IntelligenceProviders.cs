@@ -90,6 +90,14 @@ public sealed class OpenAiCompatibleIntelligenceProvider : IIntelligenceProvider
             ["messages"] = new[] { new { role = "system", content = system }, new { role = "user", content = user } },
             [Metadata.Id is "OpenAI" or "Groq" ? "max_completion_tokens" : "max_tokens"] = Math.Clamp(maxTokens, 8, 8192)
         };
+        // DeepSeek V4 Flash enables high-effort thinking by default. Small completion
+        // budgets (including the connection probe) can be consumed before visible
+        // content is returned, which the chat-completions adapter correctly rejects
+        // as an empty response. Product answers use the provider's documented
+        // non-thinking mode so the full budget remains available to the user-facing
+        // answer; no reasoning content is sent to or surfaced by the application.
+        if (Metadata.Id.Equals("DeepSeek", StringComparison.OrdinalIgnoreCase))
+            payload["thinking"] = new { type = "disabled" };
         if (structured) payload["response_format"] = new { type = "json_object" };
 
         for (var attempt = 0; attempt < 2; attempt++)

@@ -88,6 +88,10 @@ public partial class MainWindow : Window
         _brand = _brandingService.Load();
         InitializeComponent();
 
+        SettingsProductVersionText.Text = AppBuildIdentity.CustomerVersion;
+        SettingsBuildIdentityText.Text =
+            $"{AppBuildIdentity.InternalBuild} • {AppBuildIdentity.SourceCommit} • {AppBuildIdentity.BuildTimestampUtc}";
+
         _settings = _settingsService.LoadOrDiscover();
         ApplyCommercialBranding();
         ApplyPolishedAppearance(_settings.Appearance);
@@ -167,7 +171,9 @@ public partial class MainWindow : Window
                 {
                     status = "READY",
                     time = DateTimeOffset.Now,
-                    version = typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? ""
+                    version = AppBuildIdentity.CustomerVersion,
+                    assemblyVersion = typeof(MainWindow).Assembly.GetName().Version?.ToString() ?? "",
+                    build = AppBuildIdentity.GetRuntimeProof()
                 }));
         }
         catch { }
@@ -3465,4 +3471,3 @@ public sealed class UiDynamicTextConverter : IValueConverter
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
 }
-
