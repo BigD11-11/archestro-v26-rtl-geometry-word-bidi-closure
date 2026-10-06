@@ -49,7 +49,7 @@ public static class SelfTestService
             var meeting = new MeetingRecord
             {
                 Id = "synthetic-word-visual-qa-" + suffix.ToLowerInvariant(),
-                FolderPath = Path.Combine(outputPath, "synthetic-" + suffix.ToLowerInvariant()),
+                FolderPath = Path.Combine(Path.GetTempPath(), "ArchestroV1_1_0WordVisualQA_" + Guid.NewGuid().ToString("N"), suffix),
                 Title = arabic ? "اجتماع اصطناعي لمراجعة الواجهة" : "Synthetic interface review meeting",
                 HasExplicitTitle = true,
                 StartLocal = new DateTimeOffset(2026, 10, 6, 9, 0, 0, TimeSpan.FromHours(3)),
