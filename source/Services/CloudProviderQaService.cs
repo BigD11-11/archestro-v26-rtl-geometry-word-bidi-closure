@@ -48,6 +48,27 @@ public static class CloudProviderQaService
             Require(body.RootElement.GetProperty("max_tokens").GetInt32() == 128, "Gemini compatible request token limit missing.");
         Require(geminiUrl == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "Gemini OpenAI-compatible endpoint is wrong.");
 
+        string? deepSeekBody = null;
+        string? deepSeekUrl = null;
+        var deepSeekHandler = new StubHandler(async (request, _) =>
+        {
+            deepSeekBody = await request.Content!.ReadAsStringAsync();
+            deepSeekUrl = request.RequestUri?.AbsoluteUri;
+            return success();
+        });
+        using var deepSeekClient = new HttpClient(deepSeekHandler) { Timeout = Timeout.InfiniteTimeSpan };
+        var deepSeek = new OpenAiCompatibleIntelligenceProvider("DeepSeek", "", key, deepSeekClient);
+        var deepSeekConnection = await deepSeek.TestConnectionAsync("deepseek-flash", CancellationToken.None);
+        using (var body = JsonDocument.Parse(deepSeekBody!))
+        {
+            Require(body.RootElement.GetProperty("thinking").GetProperty("type").GetString() == "disabled",
+                "DeepSeek connection probe must disable default reasoning so its short output budget produces visible content.");
+            Require(body.RootElement.GetProperty("max_tokens").GetInt32() == 12,
+                "DeepSeek connection probe token budget changed unexpectedly.");
+        }
+        Require(deepSeekConnection.Succeeded && deepSeekUrl == "https://api.deepseek.com/chat/completions",
+            "DeepSeek connection probe endpoint or success result is invalid.");
+
         var authHandler = new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized)
         { Content = new StringContent("provider error echoed " + key) }));
         using var authClient = new HttpClient(authHandler) { Timeout = Timeout.InfiniteTimeSpan };
@@ -122,6 +143,7 @@ public static class CloudProviderQaService
         var evidence = new
         {
             status = "PASS", openAiCompatibleShape = "PASS", geminiCompatibleShape = "PASS", structuredJsonParse = "PASS",
+            deepSeekThinkingDisabled = "PASS",
             unauthorizedNoRetryAndRedacted = "PASS", retry429Once = "PASS", timeout = "PASS", cancellation = "PASS",
             localFallback = "PASS", telemetryRedacted = "PASS", cloudDisabledZeroCalls = "PASS", noConsentZeroCalls = "PASS",
             realCredentialsUsed = false, callsToLiveProviders = 0
