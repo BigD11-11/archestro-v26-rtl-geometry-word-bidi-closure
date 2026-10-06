@@ -88,7 +88,18 @@ public static class V30QaService
         if (localAi.State != "Ready") throw new InvalidDataException("Local AI readiness did not find a configured, packaged, or isolated test model.");
         checks["system_status_signals"] = "PASS_6_REAL_SIGNALS";
         checks["local_ai_model_detection"] = File.Exists(packagedQwen) ? "PASS_PACKAGED_QWEN_MODEL" : syntheticQwenCreated ? "PASS_ISOLATED_TEST_MODEL_FALLBACK" : "PASS_USER_DATA_MODEL";
-        checks["google_drive_root_detection"] = GoogleDriveDiscovery.FindRoots().Count > 0 ? "DETECTED" : "GRACEFUL_MISSING";
+        var actualDriveRootCount = GoogleDriveDiscovery.FindRoots().Count;
+        var configuredDriveRoot = Environment.GetEnvironmentVariable("GOOGLE_DRIVE_ROOT");
+        var syntheticDriveRoot = Path.Combine(root, "SyntheticGoogleDrive");
+        Directory.CreateDirectory(syntheticDriveRoot);
+        try
+        {
+            Environment.SetEnvironmentVariable("GOOGLE_DRIVE_ROOT", syntheticDriveRoot);
+            if (!GoogleDriveDiscovery.FindRoots().Contains(Path.GetFullPath(syntheticDriveRoot), StringComparer.OrdinalIgnoreCase))
+                throw new InvalidDataException("Google Drive Desktop configured-root detection failed.");
+        }
+        finally { Environment.SetEnvironmentVariable("GOOGLE_DRIVE_ROOT", configuredDriveRoot); }
+        checks["google_drive_root_detection"] = $"PASS_CONFIGURED_SYNTHETIC_ROOT;ACTUAL_MACHINE_ROOTS={actualDriveRootCount}";
 
         var queueTcs = new TaskCompletionSource<IntakeJob>(TaskCreationOptions.RunContinuationsAsynchronously);
         var inbox = new InboxQueueService(testDir, db);
