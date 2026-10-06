@@ -13,6 +13,10 @@
 ## Delivery artifacts
 
 - Customer offline package: `ARCHSTRO_MEETING_VAULT_1_2_0_CUSTOMER_OFFLINE_PACKAGE.zip` (90 files; 3,763,321,163 bytes), SHA-256 `21128AC9A9914937611799D9837309BD2917E8956DC25044A42141D327185DCF`.
+- Source ZIP: [ARCHSTRO_MEETING_VAULT_V30_SOURCE.zip](ARCHSTRO_MEETING_VAULT_V30_SOURCE.zip).
+- Proof ZIP: [ARCHSTRO_MEETING_VAULT_V30_PROOF.zip](ARCHSTRO_MEETING_VAULT_V30_PROOF.zip).
+- Result ZIP: [ARCHSTRO_MEETING_VAULT_V30_RESULT.zip](ARCHSTRO_MEETING_VAULT_V30_RESULT.zip).
+- SHA-256 for all release artifacts: [ARTIFACT_SHA256.txt](ARTIFACT_SHA256.txt). Each source/proof/result archive passed ZIP integrity validation.
 - Installed executable SHA-256: `720F6E4C841F76B772A556A65CED3E3AE2B003D1F18C5E6C66F27517E2E0202B`.
 - Customer package manifest: all 90 file hashes verified; executable hash matches the final installed binary.
 - Package is self-contained `win-x64` and includes Local AI runtime/model assets. The clean install initialized an empty library with Local/Offline defaults and no cloud credentials.
@@ -26,6 +30,7 @@
 - Meeting/report/Ask usage ledger and cost views, building on immutable provider pricing/FX snapshots from 1.1.0. Local cost is zero; synthetic cloud usage/cost calculations are deterministic QA-only. Cached report reopen does not add a ledger record.
 - Bilingual Arabic/English interface, System Audio capture, migration-compatible upgrade, and clean customer first-run setup.
 - WhatsApp Business and the Mobile companion remain history-only and were not implemented in 1.2.0.
+- Aims was not touched.
 
 ## Build, package, and QA
 
