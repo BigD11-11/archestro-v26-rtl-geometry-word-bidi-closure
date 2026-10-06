@@ -72,8 +72,6 @@ public sealed class SettingsService
             Path.Combine(appBase, "_runtime", "TranscriptionNative", "v1", "bridge_v2_active", "ArchestroTranscriptionBridge.exe"),
             Path.Combine(appBase, "Runtime", "Transcription", "ArchestroTranscriptionBridge.exe"),
             Path.Combine(appBase, "_runtime", "TranscriptionNative", "bridge", "ArchestroTranscriptionBridge.exe"),
-            @"V:\ArchestroRuntime\TranscriptionNative\v1\bridge_v2_active\ArchestroTranscriptionBridge.exe",
-            @"V:\ArchestroRuntime\TranscriptionNative\v1\bridge\ArchestroTranscriptionBridge.exe",
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Buzz", "Buzz.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Buzz-1.4.4", "Buzz.exe"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Buzz", "Buzz.exe"),
