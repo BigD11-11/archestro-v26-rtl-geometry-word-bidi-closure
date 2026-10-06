@@ -66,7 +66,7 @@ public static class CloudProviderQaService
             Require(body.RootElement.GetProperty("max_tokens").GetInt32() == 12,
                 "DeepSeek connection probe token budget changed unexpectedly.");
         }
-        Require(deepSeekConnection.Succeeded && deepSeekUrl == "https://api.deepseek.com/chat/completions",
+        Require(deepSeekConnection.Success && deepSeekUrl == "https://api.deepseek.com/chat/completions",
             "DeepSeek connection probe endpoint or success result is invalid.");
 
         var authHandler = new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized)
