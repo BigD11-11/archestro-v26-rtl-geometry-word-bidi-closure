@@ -166,11 +166,19 @@ public sealed record StatusSignal(string Name, string State, string Detail);
 
 public static class V30SystemStatus
 {
+    public static bool HasLocalQwenModel()
+    {
+        var configured = Environment.GetEnvironmentVariable("ARCHESTRO_AI_MODEL_PATH");
+        if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured)) return true;
+        var bundled = Path.Combine(AppContext.BaseDirectory, "AI", "Models", "Qwen3-4B-Q4_K_M.gguf");
+        return File.Exists(bundled) || File.Exists(Path.Combine(AppPaths.AiModels, "Qwen3-4B-Q4_K_M.gguf"));
+    }
+
     public static IReadOnlyList<StatusSignal> Snapshot(Models.AppSettings settings, bool recording, bool systemAudio,
         bool microphoneReady, bool systemAudioReady, string microphoneDevice, string systemDevice, bool inboxRunning)
     {
         var bridge = !string.IsNullOrWhiteSpace(settings.BuzzExe) && File.Exists(settings.BuzzExe);
-        var qwen = File.Exists(Path.Combine(AppPaths.AiModels, "Qwen3-4B-Q4_K_M.gguf"));
+        var qwen = HasLocalQwenModel();
         var groq = !string.IsNullOrWhiteSpace(settings.EncryptedGroqApiKey);
         var deepSeek = !string.IsNullOrWhiteSpace(settings.EncryptedIntelligenceApiKey);
         return new[]

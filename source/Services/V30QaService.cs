@@ -74,10 +74,20 @@ public static class V30QaService
         checks["groq_duration_cost"] = "PASS_$0.04_PER_AUDIO_HOUR";
 
         var signalSettings = new AppSettings { BuzzExe = audio, IntelligenceModel = "fixture", TranscriptionEngine = "native-whisper" };
-        await File.WriteAllBytesAsync(Path.Combine(AppPaths.AiModels, "Qwen3-4B-Q4_K_M.gguf"), [1]);
+        var packagedQwen = Path.Combine(AppContext.BaseDirectory, "AI", "Models", "Qwen3-4B-Q4_K_M.gguf");
+        var dataQwen = Path.Combine(AppPaths.AiModels, "Qwen3-4B-Q4_K_M.gguf");
+        var syntheticQwenCreated = false;
+        if (!File.Exists(packagedQwen) && !File.Exists(dataQwen))
+        {
+            await File.WriteAllBytesAsync(dataQwen, [1]);
+            syntheticQwenCreated = true;
+        }
         var status = V30SystemStatus.Snapshot(signalSettings, false, false, true, true, "synthetic mic", "synthetic system device", false);
         if (status.Count != 6 || status.Any(s => string.IsNullOrWhiteSpace(s.State))) throw new InvalidDataException("System Status Pulse signal model failed.");
+        var localAi = status.Single(s => s.Name == "Local AI");
+        if (localAi.State != "Ready") throw new InvalidDataException("Local AI readiness did not find a configured, packaged, or isolated test model.");
         checks["system_status_signals"] = "PASS_6_REAL_SIGNALS";
+        checks["local_ai_model_detection"] = File.Exists(packagedQwen) ? "PASS_PACKAGED_QWEN_MODEL" : syntheticQwenCreated ? "PASS_ISOLATED_TEST_MODEL_FALLBACK" : "PASS_USER_DATA_MODEL";
         checks["google_drive_root_detection"] = GoogleDriveDiscovery.FindRoots().Count > 0 ? "DETECTED" : "GRACEFUL_MISSING";
 
         var queueTcs = new TaskCompletionSource<IntakeJob>(TaskCreationOptions.RunContinuationsAsynchronously);
