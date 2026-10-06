@@ -1,0 +1,5 @@
+Customer offline package  ARCHSTRO_MEETING_VAULT_1_2_0_CUSTOMER_OFFLINE_PACKAGE.zip  21128AC9A9914937611799D9837309BD2917E8956DC25044A42141D327185DCF
+Installed executable      Archestro.MeetingVault.exe  720F6E4C841F76B772A556A65CED3E3AE2B003D1F18C5E6C66F27517E2E0202B
+Source ZIP                (created at final packaging checkpoint; see below)
+Proof ZIP                 (created at final packaging checkpoint; see below)
+Result ZIP                (created at final packaging checkpoint; see below)

@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "build": "V30",
+  "checks": {
+    "clean_settings_default": "PASS_OFFLINE_LOCAL_CLOUD_DISABLED",
+    "groq_test_connection": "PASS_SYNTHETIC_HTTP",
+    "groq_multipart_ar_en_segments_and_bounded_retry": "PASS_SYNTHETIC_HTTP",
+    "groq_cancellation": "PASS",
+    "groq_duration_cost": "PASS_$0.04_PER_AUDIO_HOUR",
+    "system_status_signals": "PASS_6_REAL_SIGNALS",
+    "local_ai_model_detection": "PASS_PACKAGED_QWEN_MODEL",
+    "google_drive_root_detection": "PASS_CONFIGURED_SYNTHETIC_ROOT;ACTUAL_MACHINE_ROOTS=0",
+    "inbox_file_watcher_and_dedupe": "PASS_SYNTHETIC_LOCAL_FOLDER",
+    "isolated_qa_database": "PASS_INTEGRITY_AND_FK"
+  },
+  "cloudLive": "NOT_RUN_NO_USER_CREDENTIAL_IN_QA"
+}

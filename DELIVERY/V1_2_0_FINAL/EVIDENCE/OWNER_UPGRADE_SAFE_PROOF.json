@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "sqliteIntegrity": "ok",
+  "foreignKeyErrors": 0,
+  "businessTableRowsPreserved": 46.0,
+  "semanticBusinessHashesUnchanged": true,
+  "localOfflineDefaults": true,
+  "cloudDisabled": true,
+  "encryptedCloudKeysPresent": false,
+  "actualDesktopShortcutLaunch": true,
+  "actualStartMenuShortcutLaunch": true,
+  "installedProcessLeftRunning": true,
+  "version": "1.2.0+V30.17f159d627df18c38b60f83cdf79d0a8b17f34d9",
+  "installedExeSha256": "720F6E4C841F76B772A556A65CED3E3AE2B003D1F18C5E6C66F27517E2E0202B"
+}

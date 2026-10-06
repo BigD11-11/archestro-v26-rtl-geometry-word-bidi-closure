@@ -1,0 +1,11 @@
+Release publish: PASS
+Target: win-x64, self-contained
+Configuration: Release
+CustomerVersion: 1.2.0
+InternalBuild: V30
+SourceCommit: 17f159d627df18c38b60f83cdf79d0a8b17f34d9
+BuildTimestampUtc: 2026-10-06T12:04:26Z
+Errors: 0
+Warnings: 12
+Installed EXE SHA-256: 720F6E4C841F76B772A556A65CED3E3AE2B003D1F18C5E6C66F27517E2E0202B
+Customer offline package SHA-256: 21128AC9A9914937611799D9837309BD2917E8956DC25044A42141D327185DCF

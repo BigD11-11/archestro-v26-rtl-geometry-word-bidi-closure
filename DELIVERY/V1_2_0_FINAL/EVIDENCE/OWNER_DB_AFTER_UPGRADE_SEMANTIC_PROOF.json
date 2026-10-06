@@ -1,0 +1,50 @@
+{
+  "status": "PASS",
+  "integrity": "ok",
+  "foreignKeyErrors": 0,
+  "businessTables": [
+    {
+      "table": "meetings",
+      "beforeRows": 13,
+      "afterRows": 13,
+      "beforeSha256": "6cd3926d8b0488ad0cba0d273298b2b9b8e33999e8ea4c863b2b0e64d1b17bdf",
+      "afterSha256": "6cd3926d8b0488ad0cba0d273298b2b9b8e33999e8ea4c863b2b0e64d1b17bdf",
+      "unchanged": true
+    },
+    {
+      "table": "categories",
+      "beforeRows": 10,
+      "afterRows": 10,
+      "beforeSha256": "46c496005ef854a4d7e7ccd3b93a170ec88681f5b536b9dec29ad05311321278",
+      "afterSha256": "46c496005ef854a4d7e7ccd3b93a170ec88681f5b536b9dec29ad05311321278",
+      "unchanged": true
+    },
+    {
+      "table": "important_marks",
+      "beforeRows": 8,
+      "afterRows": 8,
+      "beforeSha256": "d7848431122f233a495683e9bbdbd0504d8b4d6241eeea741c023b36dd2640f3",
+      "afterSha256": "d7848431122f233a495683e9bbdbd0504d8b4d6241eeea741c023b36dd2640f3",
+      "unchanged": true
+    },
+    {
+      "table": "meeting_fts",
+      "beforeRows": 15,
+      "afterRows": 15,
+      "beforeSha256": "ca58288c346cc3303a5d3cdae43e3f74a1bebe2688595182e4537d18595908fe",
+      "afterSha256": "ca58288c346cc3303a5d3cdae43e3f74a1bebe2688595182e4537d18595908fe",
+      "unchanged": true
+    },
+    {
+      "table": "ai_usage_ledger",
+      "beforeRows": 0,
+      "afterRows": 0,
+      "beforeSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "afterSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "unchanged": true
+    }
+  ],
+  "schemaChanged": false,
+  "totalTablesBefore": 9,
+  "totalTablesAfter": 9
+}

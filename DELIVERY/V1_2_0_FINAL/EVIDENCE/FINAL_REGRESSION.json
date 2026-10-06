@@ -1,0 +1,37 @@
+[
+  {
+    "test": "offline regression",
+    "exitCode": 0,
+    "seconds": 4.1
+  },
+  {
+    "test": "cloud guardrails",
+    "exitCode": 0,
+    "seconds": 1.8
+  },
+  {
+    "test": "V30 service/inbox/cloud QA",
+    "exitCode": 0,
+    "seconds": 8.8
+  },
+  {
+    "test": "Local Qwen report and cost QA",
+    "exitCode": 0,
+    "seconds": 144.0
+  },
+  {
+    "test": "Arabic/English physical layout QA",
+    "exitCode": 0,
+    "seconds": 2.8
+  },
+  {
+    "test": "Arabic/English Word QA",
+    "exitCode": 0,
+    "seconds": 1.4
+  },
+  {
+    "test": "speaker model QA",
+    "exitCode": 0,
+    "seconds": 19.5
+  }
+]

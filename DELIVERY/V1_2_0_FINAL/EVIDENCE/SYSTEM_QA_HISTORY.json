@@ -1,0 +1,8 @@
+{
+  "attempt1": "FAIL_TRANSCRIPT_FINALIZATION; swallowed exception unavailable",
+  "attempt2": "PASS",
+  "engine": "native-whisper",
+  "elapsedSeconds": 89.5,
+  "bridgePresent": true,
+  "rootCause": "NOT_ESTABLISHED"
+}

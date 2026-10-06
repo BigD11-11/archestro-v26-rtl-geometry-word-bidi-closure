@@ -18,3 +18,27 @@ The database change is additive and transactional. Existing meetings, categories
 - Bug fix: 1.1.1
 - Compatible feature: 1.2.0
 - Breaking release: 2.0.0
+
+## Customer release 1.2.0 — Internal build V30
+
+Release type: backward-compatible feature release. The 1.1.0 release history and its accepted artifacts remain unchanged.
+
+### Added and verified
+
+- System Status Pulse with six live readiness signals; packaged Local Qwen model detection now checks the packaged runtime as well as owner model paths.
+- Google Drive Desktop discovery, Archestro Inbox folder watching, intake queue, and duplicate-file suppression.
+- Groq Whisper Large V3 Turbo cloud transcription path with Arabic/English segment parsing, bounded retries, cancellation, and duration-based cost estimation.
+- DeepSeek cloud intelligence path and Local Qwen intelligence, with Offline, Cloud Fast, and Custom processing modes.
+- Local transcription and intelligence defaults; system audio capture readiness and `native-whisper` runtime QA.
+- Bilingual Arabic/English UX and Word outputs; physical WPF layout, DOCX structure, and Microsoft Word visual checks.
+- Customer offline package with local models/runtimes, first-run clean data, and no owner meetings, settings, keys, logs, cache, or cost history.
+
+### Release evidence and limits
+
+See `DELIVERY/V1_2_0_FINAL/FINAL_CUSTOMER_RELEASE_REPORT.md`. Live cloud calls were not made without a run-authorized credential. No physical Google Drive Desktop root was present during QA. `native-whisper` passed on retry after one transient failure whose swallowed exception was not exposed. The exact offline package SHA-256 is recorded in the report and manifest.
+
+### Version policy
+
+- Bug fix: 1.2.1
+- Compatible feature: 1.3.0
+- Breaking release: 2.0.0

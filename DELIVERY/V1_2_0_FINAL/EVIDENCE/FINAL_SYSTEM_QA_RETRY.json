@@ -1,0 +1,10 @@
+{
+  "exitCode": 0,
+  "timedOut": false,
+  "elapsedSeconds": 89.5,
+  "passReceipt": true,
+  "failureFilePresent": false,
+  "progress": "[7/7] SYSTEM QA PASS • engine=native-whisper\r\n2026-10-06T15:20:09.5501101+03:00",
+  "engine": "native-whisper",
+  "bridgePresent": true
+}

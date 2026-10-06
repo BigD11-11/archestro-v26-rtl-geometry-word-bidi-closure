@@ -1,0 +1,38 @@
+{
+  "result": "ARCHESTRO_MEETING_VAULT_1_2_0_CUSTOMER_RELEASE_PASS",
+  "customerVersion": "1.2.0",
+  "internalBuild": "V30",
+  "sourceCommit": "17f159d627df18c38b60f83cdf79d0a8b17f34d9",
+  "gates": {
+    "releaseBuildPublish": "PASS",
+    "customerOfflinePackageManifest": "PASS_90_OF_90_HASHES",
+    "cleanInstall": "PASS_LOCAL_OFFLINE_EMPTY_LIBRARY",
+    "ownerUpgradeAndDataPreservation": "PASS_INTEGRITY_OK_FK_0_BUSINESS_HASHES_UNCHANGED",
+    "desktopShortcut": "PASS_LAUNCHED_AND_LEFT_RUNNING",
+    "startMenuShortcut": "PASS_LAUNCHED",
+    "localQwenReportAndZeroCost": "PASS",
+    "cachedReportNoDoubleCount": "PASS",
+    "groqIntegrationDeterministicQA": "PASS_SYNTHETIC_NO_LIVE_CREDENTIAL",
+    "deepseekIntegration": "PASS_CODE_PATH_SYNTHETIC_QA_NO_LIVE_CREDENTIAL",
+    "inboxWatcherQueueDedupe": "PASS_SYNTHETIC_FOLDER",
+    "googleDriveRootDiscovery": "PASS_CONFIGURED_SYNTHETIC_ROOT; ACTUAL_ROOT_COUNT_0",
+    "systemAudioAndNativeWhisper": "PASS_ON_RETRY; PRIOR_TRANSIENT_FAILURE_EXCEPTION_UNAVAILABLE",
+    "arabicEnglishWpfGeometry": "PASS",
+    "arabicEnglishWordVisual": "PASS_SYNTHETIC_FIXTURES_OPENED_IN_MICROSOFT_WORD",
+    "packagePrivacyScan": "PASS_0_FORBIDDEN_NAMES_0_SENSITIVE_MATCHES",
+    "tastePass": "PASS_WITH_HOST_LOW_STORAGE_WARNING"
+  },
+  "knownBoundaries": [
+    "No live cloud vendor request was made because no authorized test credential was available.",
+    "No physical Google Drive Desktop root was available on the QA host.",
+    "One native-whisper system QA failure preceded a passing retry; swallowed exception prevents root cause attribution.",
+    "The QA host had about 2.7 GB free and displayed a low-storage warning."
+  ],
+  "customerPackage": {
+    "fileName": "ARCHSTRO_MEETING_VAULT_1_2_0_CUSTOMER_OFFLINE_PACKAGE.zip",
+    "sizeBytes": 3763321163,
+    "sha256": "21128AC9A9914937611799D9837309BD2917E8956DC25044A42141D327185DCF",
+    "entries": 90
+  },
+  "installedExecutableSha256": "720F6E4C841F76B772A556A65CED3E3AE2B003D1F18C5E6C66F27517E2E0202B"
+}

@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "intelligenceProvider": "Local",
+  "transcriptionProvider": "Local",
+  "processingMode": "Offline",
+  "cloudEnabled": false,
+  "groqSecretPresent": false,
+  "intelligenceSecretPresent": false
+}
