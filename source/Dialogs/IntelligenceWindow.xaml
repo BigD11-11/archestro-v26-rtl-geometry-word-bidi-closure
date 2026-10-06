@@ -590,7 +590,7 @@
           </Grid.RowDefinitions>
           <TextBlock x:Name="AskMeetingHelp" Text="Ask a direct question about this meeting. Archestro answers only from this transcript and shows the evidence it used."
                      Foreground="{DynamicResource SecondaryTextBrush}" Margin="2,0,0,8" TextWrapping="Wrap"/>
-          <Grid Grid.Row="1">
+          <Grid x:Name="MeetingQuestionInputGrid" Grid.Row="1" FlowDirection="LeftToRight">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <TextBox x:Name="MeetingQuestionBox" MinHeight="44" Padding="12"
                      Background="{DynamicResource InputBrush}"
@@ -624,7 +624,7 @@
           </Grid.RowDefinitions>
           <TextBlock x:Name="AskVaultHelp" Text="Ask across your local meeting archive. For exact words or phrases, use the main Vault Intelligence search to see every matching meeting."
                      Foreground="{DynamicResource SecondaryTextBrush}" Margin="2,0,0,8" TextWrapping="Wrap"/>
-          <Grid Grid.Row="1">
+          <Grid x:Name="VaultQuestionInputGrid" Grid.Row="1" FlowDirection="LeftToRight">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <TextBox x:Name="VaultQuestionBox" MinHeight="44" Padding="12"
                      Background="{DynamicResource InputBrush}"

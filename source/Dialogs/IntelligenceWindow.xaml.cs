@@ -827,6 +827,10 @@ public partial class IntelligenceWindow : Window
         FollowUpHelp.Text = "ما ينبغي متابعته بعد هذا الاجتماع.";
         AskMeetingHelp.Text = "اسأل سؤالًا مباشرًا عن هذا الاجتماع. يجيب Archestro من نص هذا الاجتماع فقط ويعرض الأدلة المستخدمة.";
         AskVaultHelp.Text = "اسأل عبر أرشيف اجتماعاتك المحلي. يبحث Archestro في الاجتماعات ذات الصلة ويربط الإجابة بالأدلة.";
+        AskMeetingButton.Content = "اسأل هذا الاجتماع";
+        AskVaultButton.Content = "اسأل أرشيفي";
+        AutomationProperties.SetName(AskMeetingButton, "اسأل هذا الاجتماع");
+        AutomationProperties.SetName(AskVaultButton, "اسأل أرشيفي");
         ExportWordButton.Content = "تصدير Word";
         OpenReportFolderButton.Content = "فتح موقع الملف";
         StopAudioButton.Content = "إيقاف الصوت";
@@ -844,6 +848,23 @@ public partial class IntelligenceWindow : Window
         Grid.SetColumn(ReportNavReportButton, rtl ? 4 : 0);
         Grid.SetColumn(ReportNavMeetingAskButton, 2);
         Grid.SetColumn(ReportNavVaultAskButton, rtl ? 0 : 4);
+
+        MeetingQuestionInputGrid.FlowDirection = FlowDirection.LeftToRight;
+        VaultQuestionInputGrid.FlowDirection = FlowDirection.LeftToRight;
+        Grid.SetColumn(MeetingQuestionBox, 0);
+        Grid.SetColumn(AskMeetingButton, 1);
+        Grid.SetColumn(VaultQuestionBox, 0);
+        Grid.SetColumn(AskVaultButton, 1);
+        MeetingQuestionBox.FlowDirection = contentDirection;
+        VaultQuestionBox.FlowDirection = contentDirection;
+        MeetingQuestionBox.TextAlignment = rtl ? TextAlignment.Right : TextAlignment.Left;
+        VaultQuestionBox.TextAlignment = rtl ? TextAlignment.Right : TextAlignment.Left;
+        MeetingQuestionBox.Language = System.Windows.Markup.XmlLanguage.GetLanguage(rtl ? "ar-SA" : "en-US");
+        VaultQuestionBox.Language = System.Windows.Markup.XmlLanguage.GetLanguage(rtl ? "ar-SA" : "en-US");
+        AskMeetingButton.FlowDirection = contentDirection;
+        AskVaultButton.FlowDirection = contentDirection;
+        AskMeetingButton.Margin = new Thickness(8, 0, 0, 0);
+        AskVaultButton.Margin = new Thickness(8, 0, 0, 0);
 
         foreach (var (first, second) in new[]
         {

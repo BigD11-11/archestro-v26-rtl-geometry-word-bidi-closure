@@ -1,6 +1,6 @@
 # Archestro Meeting Vault release version
 
-Customer Version: 1.0.0 (pending final release acceptance)
+Customer Version: 1.0.0
 Internal build line: V28R3
 Architecture: Windows x64, self-contained .NET 10 WPF application
 

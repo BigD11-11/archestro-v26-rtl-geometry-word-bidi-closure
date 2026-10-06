@@ -292,7 +292,7 @@ public sealed class MeetingIntelligenceService
         // structured report is clearly off-language; preserve evidence IDs and speaker labels.
         if (ReportNeedsLanguageRepair(aggregate, language))
         {
-            for (var languagePass = 1; languagePass <= 1 && ReportNeedsLanguageRepair(aggregate, language); languagePass++)
+            for (var languagePass = 1; languagePass <= 2 && ReportNeedsLanguageRepair(aggregate, language); languagePass++)
             {
                 WriteReportDiagnostic("language-normalize-start", $"pass={languagePass}; itemCount={EnumerateDtoItems(aggregate).Count()}");
                 progress?.Report(new MeetingReportProgress
@@ -476,7 +476,7 @@ Evidence:
         return await GenerateReportDtoResilientAsync(
             system,
             user,
-            maxTokens: _providerRouter.IsCloudSelected ? 760 : 320,
+            maxTokens: _providerRouter.IsCloudSelected ? 1600 : 320,
             contextTokens: 4096,
             cancellationToken,
             "chunk").ConfigureAwait(false);
@@ -613,7 +613,7 @@ Verified facts:
             var repaired = await GenerateWithProviderAsync(
                 repairSystem,
                 repairUser,
-                compactLocalOutput ? Math.Max(maxTokens, 520) : Math.Min(maxTokens, 520),
+                compactLocalOutput ? Math.Max(maxTokens, 520) : _providerRouter.IsCloudSelected ? 1400 : Math.Min(maxTokens, 520),
                 cancellationToken,
                 contextTokensOverride: compactLocalOutput ? contextTokens : 3072,
                 preferJsonObject: true,
@@ -661,7 +661,7 @@ Rewrite ONLY customer-facing prose in the supplied structured meeting-report JSO
 Preserve every array shape, evidence ID, due value, severity value and owner/speaker label exactly.
 Do not add, remove or infer facts.
 For Arabic: keep genuine English brands, acronyms and technical/product terms in English, but every surrounding sentence must be natural Arabic.
-For English: translate explanatory prose into clear professional English.
+For English: translate every explanatory sentence into clear professional English. Do not leave Arabic-script explanatory prose in any customer-facing text field. Preserve a person's or organization’s proper name only when it is clearly an identity label; translate all other Arabic wording.
 Return valid JSON only. No markdown. No reasoning.
 """;
             var compact = JsonSerializer.Serialize(source, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
@@ -669,7 +669,7 @@ Return valid JSON only. No markdown. No reasoning.
             var raw = await GenerateWithProviderAsync(
                 system,
                 compact,
-                maxTokens: 1700,
+                maxTokens: 2400,
                 cancellationToken,
                 contextTokensOverride: 6144,
                 preferJsonObject: true,
